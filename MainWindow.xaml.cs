@@ -48,6 +48,9 @@ namespace ImageEditor
         private readonly HistoryManager _historyManager = new();
 
         // Compression state
+        private BitmapSource? _originalLoadedImage;
+        private enum CompressTarget { Edited, Original }
+        private CompressTarget _compressTarget = CompressTarget.Edited;
         private string _compressFormat = "jpg";
         private long _originalFileSize;
         private byte[]? _lastCompressedData;
@@ -62,6 +65,11 @@ namespace ImageEditor
         private static readonly HashSet<string> SupportedBatchExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".jpg", ".jpeg", ".png", ".bmp", ".webp"
+        };
+        private static readonly string[] ColorPaletteHexes =
+        {
+            "FFEB3B", "FFC107", "FF9800", "E53935", "5E35B1", "8E24AA", "D81B60", "C2185B",
+            "00B0FF", "0078D4", "1565C0", "7CB342", "2E7D32", "FFFFFF", "9E9E9E", "212121"
         };
 
         public enum StrokeShape
@@ -230,46 +238,26 @@ namespace ImageEditor
         public void SetSidebarCollapsed(bool collapsed, bool saveConfig = true)
         {
             _isSidebarCollapsed = collapsed;
-            if (_isSidebarCollapsed)
-            {
-                SidebarBorder.Width = 52;
-                SidebarToggleIcon.Symbol = SymbolRegular.PanelLeftExpand20;
-                SidebarToggleBtn.ToolTip = "Expand Sidebar";
-                SidebarToggleText.Visibility = Visibility.Collapsed;
+            var vis = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
+            var align = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
 
-                CursorText.Visibility = Visibility.Collapsed;
-                CropText.Visibility = Visibility.Collapsed;
-                PenText.Visibility = Visibility.Collapsed;
-                RotateText.Visibility = Visibility.Collapsed;
-                FlipText.Visibility = Visibility.Collapsed;
+            SidebarBorder.Width = _isSidebarCollapsed ? 52 : 145;
+            SidebarToggleIcon.Symbol = _isSidebarCollapsed ? SymbolRegular.PanelLeftExpand20 : SymbolRegular.PanelLeftContract20;
+            SidebarToggleBtn.ToolTip = _isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar";
+            SidebarToggleText.Visibility = vis;
 
-                CursorBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
-                CropBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
-                PenBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
-                RotateBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
-                FlipBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
-                SidebarToggleBtn.HorizontalContentAlignment = HorizontalAlignment.Center;
-            }
-            else
-            {
-                SidebarBorder.Width = 145;
-                SidebarToggleIcon.Symbol = SymbolRegular.PanelLeftContract20;
-                SidebarToggleBtn.ToolTip = "Collapse Sidebar";
-                SidebarToggleText.Visibility = Visibility.Visible;
+            CursorText.Visibility = vis;
+            CropText.Visibility = vis;
+            PenText.Visibility = vis;
+            RotateText.Visibility = vis;
+            FlipText.Visibility = vis;
 
-                CursorText.Visibility = Visibility.Visible;
-                CropText.Visibility = Visibility.Visible;
-                PenText.Visibility = Visibility.Visible;
-                RotateText.Visibility = Visibility.Visible;
-                FlipText.Visibility = Visibility.Visible;
-
-                CursorBtn.HorizontalContentAlignment = HorizontalAlignment.Left;
-                CropBtn.HorizontalContentAlignment = HorizontalAlignment.Left;
-                PenBtn.HorizontalContentAlignment = HorizontalAlignment.Left;
-                RotateBtn.HorizontalContentAlignment = HorizontalAlignment.Left;
-                FlipBtn.HorizontalContentAlignment = HorizontalAlignment.Left;
-                SidebarToggleBtn.HorizontalContentAlignment = HorizontalAlignment.Left;
-            }
+            CursorBtn.HorizontalContentAlignment = align;
+            CropBtn.HorizontalContentAlignment = align;
+            PenBtn.HorizontalContentAlignment = align;
+            RotateBtn.HorizontalContentAlignment = align;
+            FlipBtn.HorizontalContentAlignment = align;
+            SidebarToggleBtn.HorizontalContentAlignment = align;
 
             if (saveConfig)
             {
@@ -298,12 +286,10 @@ namespace ImageEditor
         {
             try
             {
-                using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                    _currentImage = decoder.Frames[0];
-                    _currentPath = path;
-                }
+                var bmp = ImageCompressor.LoadBitmapFromFile(path);
+                _currentImage = bmp;
+                _originalLoadedImage = bmp;
+                _currentPath = path;
 
                 DisplayImage.Source = _currentImage;
                 DisplayImage.Width = _currentImage.PixelWidth;
@@ -397,7 +383,7 @@ namespace ImageEditor
 
             if (size > 0)
             {
-                FileNameText.Text = $"— {name} ({w} × {h}, {FormatBytes(size)})";
+                FileNameText.Text = $"— {name} ({w} × {h}, {ImageCompressor.FormatBytes(size)})";
             }
             else
             {
@@ -441,16 +427,21 @@ namespace ImageEditor
             _historyManager.Record(new ImageTransformAction(this, oldImage, oldStrokes, newImage, newStrokes));
         }
 
+        private (BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource baseSource) GetTransformBase()
+        {
+            BitmapSource oldImage = _currentImage!;
+            Stroke[] oldStrokes = MainInkCanvas.Strokes.ToArray();
+            BitmapSource baseSource = oldStrokes.Length > 0 ? GetComposedBitmap() : oldImage;
+            return (oldImage, oldStrokes, baseSource);
+        }
+
         private void Rotate_Click(object sender, RoutedEventArgs e)
         {
             if (_currentImage == null) return;
             if (_isCropping) ExitCropMode();
             _savedUnappliedCropRect = null;
 
-            BitmapSource oldImage = _currentImage;
-            Stroke[] oldStrokes = MainInkCanvas.Strokes.ToArray();
-            BitmapSource baseSource = (oldStrokes.Length > 0) ? GetComposedBitmap() : oldImage;
-
+            var (oldImage, oldStrokes, baseSource) = GetTransformBase();
             var newImage = new TransformedBitmap(baseSource, new RotateTransform(90));
             if (newImage.CanFreeze) newImage.Freeze();
 
@@ -463,10 +454,7 @@ namespace ImageEditor
             if (_isCropping) ExitCropMode();
             _savedUnappliedCropRect = null;
 
-            BitmapSource oldImage = _currentImage;
-            Stroke[] oldStrokes = MainInkCanvas.Strokes.ToArray();
-            BitmapSource baseSource = (oldStrokes.Length > 0) ? GetComposedBitmap() : oldImage;
-
+            var (oldImage, oldStrokes, baseSource) = GetTransformBase();
             var newImage = new TransformedBitmap(baseSource, new ScaleTransform(-1, 1, baseSource.PixelWidth / 2.0, 0));
             if (newImage.CanFreeze) newImage.Freeze();
 
@@ -816,7 +804,7 @@ namespace ImageEditor
             double cornerThreshold = 24.0 * invScale;
             double edgeThreshold = 18.0 * invScale;
 
-            // 1. Check Corner Handles (4 Sudut)
+            // 1. Check Corner Handles (4 Corners)
             if (Distance(pt, new Point(_cropRect.X, _cropRect.Y)) <= cornerThreshold)
                 _dragMode = DragMode.ResizeTL;
             else if (Distance(pt, new Point(_cropRect.Right, _cropRect.Y)) <= cornerThreshold)
@@ -826,7 +814,7 @@ namespace ImageEditor
             else if (Distance(pt, new Point(_cropRect.X, _cropRect.Bottom)) <= cornerThreshold)
                 _dragMode = DragMode.ResizeBL;
 
-            // 2. Check Side Edge Handles (4 Sisi)
+            // 2. Check Side Edge Handles (4 Edges)
             else if (Math.Abs(pt.Y - _cropRect.Y) <= edgeThreshold && pt.X >= _cropRect.X - edgeThreshold && pt.X <= _cropRect.Right + edgeThreshold)
                 _dragMode = DragMode.ResizeT;
             else if (Math.Abs(pt.Y - _cropRect.Bottom) <= edgeThreshold && pt.X >= _cropRect.X - edgeThreshold && pt.X <= _cropRect.Right + edgeThreshold)
@@ -1020,9 +1008,7 @@ namespace ImageEditor
         {
             if (_currentImage == null || _cropRect.IsEmpty || _cropRect.Width < 2 || _cropRect.Height < 2) return;
 
-            BitmapSource oldImage = _currentImage;
-            Stroke[] oldStrokes = MainInkCanvas.Strokes.ToArray();
-            BitmapSource baseSource = (oldStrokes.Length > 0) ? GetComposedBitmap() : oldImage;
+            var (oldImage, oldStrokes, baseSource) = GetTransformBase();
 
             int px = Math.Clamp((int)Math.Round(_cropRect.X), 0, baseSource.PixelWidth - 1);
             int py = Math.Clamp((int)Math.Round(_cropRect.Y), 0, baseSource.PixelHeight - 1);
@@ -1339,16 +1325,10 @@ namespace ImageEditor
 
         private void UpdateColorSelectionRing(string selectedHex)
         {
-            string[] hexes = {
-                "FFEB3B", "FFC107", "FF9800", "E53935", "5E35B1", "8E24AA", "D81B60", "C2185B",
-                "00B0FF", "0078D4", "1565C0", "7CB342", "2E7D32", "FFFFFF", "9E9E9E", "212121"
-            };
-
             string normalized = selectedHex.TrimStart('#').ToUpperInvariant();
-            foreach (var h in hexes)
+            foreach (var h in ColorPaletteHexes)
             {
-                var el = FindName($"ColorBorder_{h}") as Border;
-                if (el != null)
+                if (FindName($"ColorBorder_{h}") is Border el)
                 {
                     el.BorderBrush = (h == normalized) ? Brushes.White : Brushes.Transparent;
                 }
@@ -1559,12 +1539,16 @@ namespace ImageEditor
 
         private void Compress_Click(object sender, RoutedEventArgs e)
         {
+            OpenCompressModal(CompressTarget.Edited);
+        }
+
+        private void OpenCompressModal(CompressTarget target)
+        {
             if (_currentImage == null) return;
             if (_isCropping) ExitCropMode();
 
-            CompressResolutionText.Text = $"{_currentImage.PixelWidth} × {_currentImage.PixelHeight} px";
-            _originalFileSize = GetOriginalFileSize();
-            CompressOriginalSizeText.Text = FormatBytes(_originalFileSize);
+            _compressTarget = target;
+            UpdateCompressionTargetUI();
 
             // Automatically match output format to the loaded image
             string ext = !string.IsNullOrEmpty(_currentPath)
@@ -1580,6 +1564,82 @@ namespace ImageEditor
 
             CompressModal.Visibility = Visibility.Visible;
             UpdateCompressionEstimate();
+        }
+
+        private void CompressTargetEdited_Click(object sender, RoutedEventArgs e)
+        {
+            if (_compressTarget == CompressTarget.Edited) return;
+            _compressTarget = CompressTarget.Edited;
+            UpdateCompressionTargetUI();
+            UpdateCompressionEstimate();
+        }
+
+        private void CompressTargetOriginal_Click(object sender, RoutedEventArgs e)
+        {
+            if (_compressTarget == CompressTarget.Original) return;
+            _compressTarget = CompressTarget.Original;
+            UpdateCompressionTargetUI();
+            UpdateCompressionEstimate();
+        }
+
+        private void UpdateCompressionTargetUI()
+        {
+            if (CompressTargetEditedBtn == null || CompressTargetOriginalBtn == null) return;
+
+            if (_compressTarget == CompressTarget.Edited)
+            {
+                CompressTargetEditedBtn.Appearance = Wpf.Ui.Controls.ControlAppearance.Primary;
+                CompressTargetOriginalBtn.Appearance = Wpf.Ui.Controls.ControlAppearance.Secondary;
+                CompressResolutionLabel.Text = "Edited Canvas Resolution";
+                CompressOriginalSizeLabel.Text = "Edited Baseline Size";
+
+                BitmapSource activeSource = GetComposedBitmap();
+                CompressResolutionText.Text = $"{activeSource.PixelWidth} × {activeSource.PixelHeight} px";
+                _originalFileSize = GetSourceBaselineSize(activeSource, _compressFormat);
+                CompressOriginalSizeText.Text = ImageCompressor.FormatBytes(_originalFileSize);
+            }
+            else
+            {
+                CompressTargetEditedBtn.Appearance = Wpf.Ui.Controls.ControlAppearance.Secondary;
+                CompressTargetOriginalBtn.Appearance = Wpf.Ui.Controls.ControlAppearance.Primary;
+                CompressResolutionLabel.Text = "Original File Resolution";
+                CompressOriginalSizeLabel.Text = "Original File Size";
+
+                BitmapSource origSource = _originalLoadedImage ?? _currentImage!;
+                CompressResolutionText.Text = $"{origSource.PixelWidth} × {origSource.PixelHeight} px";
+                _originalFileSize = GetOriginalFileSize();
+                CompressOriginalSizeText.Text = ImageCompressor.FormatBytes(_originalFileSize);
+            }
+            _lastCompressedData = null;
+        }
+
+        private BitmapSource GetCurrentCompressSource()
+        {
+            if (_compressTarget == CompressTarget.Original)
+            {
+                return _originalLoadedImage ?? _currentImage!;
+            }
+            return GetComposedBitmap();
+        }
+
+        private long GetSourceBaselineSize(BitmapSource source, string format)
+        {
+            if (_compressTarget == CompressTarget.Original ||
+                (source == _originalLoadedImage && MainInkCanvas.Strokes.Count == 0 && !_historyManager.CanUndo))
+            {
+                return GetOriginalFileSize();
+            }
+
+            try
+            {
+                return format == "jpg"
+                    ? ImageCompressor.EncodeJpeg(source, 100).Length
+                    : ImageCompressor.EncodePng(source).Length;
+            }
+            catch
+            {
+                return GetOriginalFileSize();
+            }
         }
 
         private void CloseCompressModal_Click(object sender, RoutedEventArgs e)
@@ -1633,9 +1693,13 @@ namespace ImageEditor
             if (CompressMinusBtn != null) CompressMinusBtn.IsEnabled = percent > (int)CompressQualitySlider.Minimum;
             if (CompressPlusBtn != null) CompressPlusBtn.IsEnabled = percent < (int)CompressQualitySlider.Maximum;
 
+            BitmapSource baseSource = GetCurrentCompressSource();
+
             if (_originalFileSize <= 0)
             {
-                _originalFileSize = GetOriginalFileSize();
+                _originalFileSize = (_compressTarget == CompressTarget.Original)
+                    ? GetOriginalFileSize()
+                    : GetSourceBaselineSize(baseSource, _compressFormat);
             }
 
             if (percent >= 100)
@@ -1644,7 +1708,7 @@ namespace ImageEditor
                 _lastCompressedQuality = 100;
                 _lastCompressedFormat = _compressFormat;
 
-                CompressNewSizeText.Text = FormatBytes(_originalFileSize);
+                CompressNewSizeText.Text = ImageCompressor.FormatBytes(_originalFileSize);
                 CompressReductionText.Text = " (Original)";
                 CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
                 return;
@@ -1652,14 +1716,13 @@ namespace ImageEditor
 
             try
             {
-                BitmapSource baseSource = GetComposedBitmap();
-                byte[] data = EncodeCompressedImage(baseSource, _compressFormat, percent);
+                byte[] data = ImageCompressor.CompressByQuality(baseSource, _compressFormat, percent);
                 _lastCompressedData = data;
                 _lastCompressedQuality = percent;
                 _lastCompressedFormat = _compressFormat;
 
                 long actualBytes = data.Length;
-                CompressNewSizeText.Text = FormatBytes(actualBytes);
+                CompressNewSizeText.Text = ImageCompressor.FormatBytes(actualBytes);
 
                 if (_originalFileSize > 0)
                 {
@@ -1692,13 +1755,15 @@ namespace ImageEditor
                 ? (!string.IsNullOrEmpty(_currentPath) && System.IO.Path.GetExtension(_currentPath).Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpeg" : ".jpg")
                 : ".png";
             string filter = _compressFormat == "jpg" ? "JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg" : "PNG Image (*.png)|*.png";
+
+            string suffix = (_compressTarget == CompressTarget.Original) ? "_original_compressed" : "_compressed";
             string baseName = string.IsNullOrEmpty(_currentPath)
-                ? "compressed_image"
-                : System.IO.Path.GetFileNameWithoutExtension(_currentPath) + "_compressed";
+                ? (_compressTarget == CompressTarget.Original ? "original_compressed" : "compressed_image")
+                : System.IO.Path.GetFileNameWithoutExtension(_currentPath) + suffix;
 
             var dlg = new SaveFileDialog
             {
-                Title = "Save Compressed Image",
+                Title = _compressTarget == CompressTarget.Original ? "Save Compressed Original Image" : "Save Compressed Edited Image",
                 Filter = filter,
                 DefaultExt = ext,
                 FileName = baseName + ext
@@ -1711,7 +1776,19 @@ namespace ImageEditor
                     int percent = (int)Math.Round(CompressQualitySlider.Value);
                     byte[] data;
 
-                    if (percent >= 100 && MainInkCanvas.Strokes.Count == 0 && !_historyManager.CanUndo && !string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
+                    if (percent >= 100 && _compressTarget == CompressTarget.Original && !string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
+                    {
+                        File.Copy(_currentPath, dlg.FileName, true);
+                        CloseCompressModal();
+                        System.Windows.MessageBox.Show(
+                            "Image compressed and saved successfully.",
+                            "Success",
+                            System.Windows.MessageBoxButton.OK,
+                            System.Windows.MessageBoxImage.Information);
+                        return;
+                    }
+
+                    if (percent >= 100 && _compressTarget == CompressTarget.Edited && MainInkCanvas.Strokes.Count == 0 && !_historyManager.CanUndo && !string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
                     {
                         File.Copy(_currentPath, dlg.FileName, true);
                         CloseCompressModal();
@@ -1729,8 +1806,8 @@ namespace ImageEditor
                     }
                     else
                     {
-                        BitmapSource baseSource = GetComposedBitmap();
-                        data = EncodeCompressedImage(baseSource, _compressFormat, percent);
+                        BitmapSource baseSource = GetCurrentCompressSource();
+                        data = ImageCompressor.CompressByQuality(baseSource, _compressFormat, percent);
                     }
 
                     File.WriteAllBytes(dlg.FileName, data);
@@ -1756,25 +1833,52 @@ namespace ImageEditor
         private void CompressBtn_Click(object sender, RoutedEventArgs e)
         {
             CompressCurrentItem.IsEnabled = _currentImage != null;
+            CompressSubMenuBorder.Visibility = Visibility.Collapsed;
+            CompressCurrentItem.Background = Brushes.Transparent;
             CompressMenuPopup.IsOpen = true;
         }
 
         private void CompressCurrentItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (_currentImage == null) return;
+            e.Handled = true;
+
+            if (CompressSubMenuBorder.Visibility == Visibility.Visible)
+            {
+                CompressSubMenuBorder.Visibility = Visibility.Collapsed;
+                CompressCurrentItem.Background = Brushes.Transparent;
+            }
+            else
+            {
+                CompressSubMenuBorder.Visibility = Visibility.Visible;
+                CompressCurrentItem.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#303030"));
+            }
+        }
+
+        private void CompressEditedItem_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_currentImage == null) return;
+            CompressCurrentItem.Background = Brushes.Transparent;
+            CompressSubMenuBorder.Visibility = Visibility.Collapsed;
             CompressMenuPopup.IsOpen = false;
-            Compress_Click(sender, e);
+            OpenCompressModal(CompressTarget.Edited);
+        }
+
+        private void CompressOriginalItem_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_currentImage == null) return;
+            CompressCurrentItem.Background = Brushes.Transparent;
+            CompressSubMenuBorder.Visibility = Visibility.Collapsed;
+            CompressMenuPopup.IsOpen = false;
+            OpenCompressModal(CompressTarget.Original);
         }
 
         private void BatchCompressItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
+            CompressCurrentItem.Background = Brushes.Transparent;
+            CompressSubMenuBorder.Visibility = Visibility.Collapsed;
             CompressMenuPopup.IsOpen = false;
             OpenBatchCompressModal();
-        }
-
-        private static byte[] EncodeCompressedImage(BitmapSource source, string format, int percent)
-        {
-            return ImageCompressor.CompressByQuality(source, format, percent);
         }
 
         private long GetOriginalFileSize()
@@ -1802,11 +1906,6 @@ namespace ImageEditor
             }
 
             return 0;
-        }
-
-        private static string FormatBytes(long bytes)
-        {
-            return ImageCompressor.FormatBytes(bytes);
         }
 
         #endregion
@@ -2059,10 +2158,6 @@ namespace ImageEditor
         private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
         {
             e.Handled = !Regex.IsMatch(e.Text, "^[0-9]+$");
-        }
-
-        private void BatchDest_Changed(object sender, RoutedEventArgs e)
-        {
         }
 
         private void BatchBrowseCustomFolder_Click(object sender, RoutedEventArgs e)

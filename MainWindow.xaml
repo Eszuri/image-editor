@@ -61,67 +61,143 @@
                                VerticalOffset="4"
                                StaysOpen="False"
                                AllowsTransparency="True">
-                            <Border Background="#202020" BorderBrush="#383838" BorderThickness="1"
-                                    CornerRadius="8" Padding="6" Width="260">
-                                <Border.Effect>
-                                    <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.5" Direction="270"/>
-                                </Border.Effect>
-                                <StackPanel>
-                                    <!-- Option 1: Compress Current Image -->
-                                    <Border x:Name="CompressCurrentItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand" MouseDown="CompressCurrentItem_MouseDown">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#303030"/>
-                                                    </Trigger>
-                                                    <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter Property="Opacity" Value="0.4"/>
-                                                        <Setter Property="Cursor" Value="Arrow"/>
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <ui:SymbolIcon Symbol="Image24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="Compress Current Image" FontWeight="SemiBold" FontSize="12"/>
-                                                <TextBlock Text="Optimize active image on canvas" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                                    <Border Height="1" Background="#333333" Margin="4,4"/>
+                                <!-- Main Menu Border -->
+                                <Border x:Name="CompressMainMenuBorder" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                                        CornerRadius="8" Padding="6" Width="260" VerticalAlignment="Top">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.5" Direction="270"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <!-- Option 1: Compress Current Image (with submenu arrow) -->
+                                        <Border x:Name="CompressCurrentItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand"
+                                                MouseDown="CompressCurrentItem_MouseDown">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#303030"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter Property="Opacity" Value="0.4"/>
+                                                            <Setter Property="Cursor" Value="Arrow"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ui:SymbolIcon Symbol="Image24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Compress Current Image" FontWeight="SemiBold" FontSize="12"/>
+                                                    <TextBlock Text="Optimize active image on canvas" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                                <ui:SymbolIcon Grid.Column="2" Symbol="ChevronRight16" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                            </Grid>
+                                        </Border>
 
-                                    <!-- Option 2: Batch Compress -->
-                                    <Border x:Name="BatchCompressItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand" MouseDown="BatchCompressItem_MouseDown">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#303030"/>
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <ui:SymbolIcon Symbol="FolderZip24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="Batch Compress Images..." FontWeight="SemiBold" FontSize="12"/>
-                                                <TextBlock Text="Compress multiple files or folders" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
+                                        <Border Height="1" Background="#333333" Margin="4,4"/>
+
+                                        <!-- Option 2: Batch Compress -->
+                                        <Border x:Name="BatchCompressItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand"
+                                                MouseDown="BatchCompressItem_MouseDown">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#303030"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ui:SymbolIcon Symbol="FolderZip24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Batch Compress Images..." FontWeight="SemiBold" FontSize="12"/>
+                                                    <TextBlock Text="Compress multiple files or folders" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Right Side Submenu (Options on the Right) -->
+                                <Border x:Name="CompressSubMenuBorder" Grid.Column="1"
+                                        Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                                        CornerRadius="8" Padding="6" Width="260" Margin="4,0,0,0"
+                                        VerticalAlignment="Top"
+                                        Visibility="Collapsed">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.5" Direction="270"/>
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <!-- Submenu Item 1: Compress Edited Image -->
+                                        <Border x:Name="CompressEditedItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand"
+                                                MouseDown="CompressEditedItem_MouseDown">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#303030"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ui:SymbolIcon Symbol="Edit24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Compress Edited Image" FontWeight="SemiBold" FontSize="12"/>
+                                                    <TextBlock Text="Active canvas with current edits" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <Border Height="1" Background="#333333" Margin="4,4"/>
+
+                                        <!-- Submenu Item 2: Compress Original Image -->
+                                        <Border x:Name="CompressOriginalItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand"
+                                                MouseDown="CompressOriginalItem_MouseDown">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#303030"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ui:SymbolIcon Symbol="Document24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="Compress Original Image" FontWeight="SemiBold" FontSize="12"/>
+                                                    <TextBlock Text="Original unedited source file" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                         </Popup>
                     </Grid>
 
@@ -497,13 +573,13 @@
                                 </Grid>
                             </Border>
 
-                            <!-- 4 Corner Handles (Sudut) -->
+                            <!-- 4 Corner Handles -->
                             <Border x:Name="HandleTL" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNWSE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                             <Border x:Name="HandleTR" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNESW" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                             <Border x:Name="HandleBR" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNWSE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                             <Border x:Name="HandleBL" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNESW" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
 
-                            <!-- 4 Side Edge Handles (Sisi: Atas, Bawah, Kiri, Kanan) -->
+                            <!-- 4 Side Edge Handles (Top, Bottom, Left, Right) -->
                             <Border x:Name="HandleT" Width="28" Height="10" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeNS" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                             <Border x:Name="HandleB" Width="28" Height="10" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeNS" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                             <Border x:Name="HandleL" Width="10" Height="28" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeWE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
@@ -515,7 +591,7 @@
         </Border>
     </Grid>
 
-        <!-- Docked Bottom Crop Action Bar (TIDAK MENGAMBANG) -->
+        <!-- Docked Bottom Crop Action Bar -->
         <Border x:Name="CropBottomBar" Grid.Row="3" Visibility="Collapsed"
                 Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
@@ -555,10 +631,35 @@
                         <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseCompressModal_Click" Padding="6" ToolTip="Close (Esc)"/>
                     </Grid>
 
+                    <!-- Source Selection Segmented Toggle -->
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="8" Padding="3" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ui:Button x:Name="CompressTargetEditedBtn" Grid.Column="0"
+                                       Content="Edited Image"
+                                       Icon="{ui:SymbolIcon Edit20}"
+                                       Appearance="Primary"
+                                       HorizontalAlignment="Stretch"
+                                       Click="CompressTargetEdited_Click"
+                                       ToolTip="Compress image currently on canvas with all edits"/>
+                            <ui:Button x:Name="CompressTargetOriginalBtn" Grid.Column="1"
+                                       Content="Original Image"
+                                       Icon="{ui:SymbolIcon Document20}"
+                                       Appearance="Secondary"
+                                       HorizontalAlignment="Stretch"
+                                       Click="CompressTargetOriginal_Click"
+                                       Margin="4,0,0,0"
+                                       ToolTip="Compress pristine original image without edits"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Resolution Info Card -->
                     <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Original Resolution" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                            <TextBlock x:Name="CompressResolutionLabel" Text="Resolution" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                             <TextBlock x:Name="CompressResolutionText" Text="1920 × 1080 px" FontWeight="Bold" FontSize="13" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Border>
@@ -574,7 +675,7 @@
 
                             <!-- Original Size -->
                             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
-                                <TextBlock Text="Current Size" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                                <TextBlock x:Name="CompressOriginalSizeLabel" Text="Source Size" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
                                 <TextBlock x:Name="CompressOriginalSizeText" Text="2.45 MB" FontWeight="Bold" FontSize="14" Margin="0,3,0,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                             </StackPanel>
 
@@ -875,7 +976,7 @@
                             <StackPanel>
                                 <TextBlock Text="Output Destination" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8" Foreground="{DynamicResource AccentFillColorDefaultBrush}"/>
 
-                                <RadioButton x:Name="BatchDestSubfolderRadio" GroupName="BatchDestGroup" Content="Subfolder in original directory" FontWeight="SemiBold" IsChecked="True" Checked="BatchDest_Changed" Margin="0,0,0,4"/>
+                                <RadioButton x:Name="BatchDestSubfolderRadio" GroupName="BatchDestGroup" Content="Subfolder in original directory" FontWeight="SemiBold" IsChecked="True" Margin="0,0,0,4"/>
                                 <StackPanel Margin="20,0,0,8">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -887,7 +988,7 @@
                                     </Grid>
                                 </StackPanel>
 
-                                <RadioButton x:Name="BatchDestCustomRadio" GroupName="BatchDestGroup" Content="Save to custom folder" FontWeight="SemiBold" Checked="BatchDest_Changed" Margin="0,0,0,4"/>
+                                <RadioButton x:Name="BatchDestCustomRadio" GroupName="BatchDestGroup" Content="Save to custom folder" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                 <StackPanel Margin="20,0,0,8">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -899,7 +1000,7 @@
                                     </Grid>
                                 </StackPanel>
 
-                                <RadioButton x:Name="BatchDestOverwriteRadio" GroupName="BatchDestGroup" Content="Overwrite original files (Warning)" FontWeight="SemiBold" Foreground="#FFA726" Checked="BatchDest_Changed" Margin="0,0,0,0"/>
+                                <RadioButton x:Name="BatchDestOverwriteRadio" GroupName="BatchDestGroup" Content="Overwrite original files (Warning)" FontWeight="SemiBold" Foreground="#FFA726" Margin="0,0,0,0"/>
                             </StackPanel>
                         </Border>
                     </Grid>

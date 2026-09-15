@@ -32,12 +32,10 @@ namespace ImageEditor
                 OnPropertyChanged(nameof(NewSize));
                 OnPropertyChanged(nameof(NewSizeFormatted));
                 OnPropertyChanged(nameof(ReductionFormatted));
-                OnPropertyChanged(nameof(HasNewSize));
             }
         }
 
         public string NewSizeFormatted => _newSize > 0 ? ImageCompressor.FormatBytes(_newSize) : "-";
-        public bool HasNewSize => _newSize > 0;
 
         public string ReductionFormatted
         {
