@@ -40,6 +40,13 @@ A fast, clean, and intuitive native Windows desktop image editor built with **C#
 - **Rotate 90° Clockwise (`R`)**: Clean rotation maintaining original resolution and annotations.
 - **Flip Horizontal (`F`)**: Instant mirror reflection.
 
+### 🗜️ Compress Image (Resolution-Preserving File Size Reduction)
+- **100% Original Resolution Preserved**: Retains the exact pixel dimensions (`Width × Height px`) without any downscaling or resampling.
+- **Live Size Estimator**: Real-time calculated file size reduction display (`Current Size → New Size (-XX%)`) as the size slider moves smoothly from original down to smallest.
+- **Proportional Size Slider**: Smooth compression slider (10%–100%) that sequentially scales file size from original down to the smallest size.
+- **Automatic Format Matching**: Automatically matches and saves in the original file format (PNG or JPEG).
+- **Clean Alpha Compositing**: Automatically composites transparent PNGs over solid white to prevent black backgrounds when compressing to JPEG.
+
 ---
 
 ## Shortcuts Reference

@@ -9,6 +9,7 @@ namespace ImageEditor
         public string PenColorHex { get; set; } = "#0078D4";
         public double PenThickness { get; set; } = 3.0;
         public string PenShape { get; set; } = "Freehand";
+        public double LastCompressSliderValue { get; set; } = 100.0;
 
         public static string ConfigFilePath
         {

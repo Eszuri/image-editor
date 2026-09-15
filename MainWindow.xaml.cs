@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
@@ -44,6 +45,13 @@ namespace ImageEditor
 
         // Global History Manager
         private readonly HistoryManager _historyManager = new();
+
+        // Compression state
+        private string _compressFormat = "jpg";
+        private long _originalFileSize;
+        private byte[]? _lastCompressedData;
+        private int _lastCompressedQuality = -1;
+        private string _lastCompressedFormat = "";
 
         public enum StrokeShape
         {
@@ -102,6 +110,7 @@ namespace ImageEditor
             _appConfig.PenColorHex = $"#{_currentColor.R:X2}{_currentColor.G:X2}{_currentColor.B:X2}";
             _appConfig.PenThickness = _currentThickness;
             _appConfig.PenShape = _strokeShape.ToString();
+            _appConfig.LastCompressSliderValue = Math.Round(CompressQualitySlider?.Value ?? 100.0);
             _appConfig.Save();
         }
 
@@ -247,7 +256,7 @@ namespace ImageEditor
 
                 ImageContainer.Visibility = Visibility.Visible;
                 PlaceholderPanel.Visibility = Visibility.Collapsed;
-                FileNameText.Text = $"— {System.IO.Path.GetFileName(path)} ({_currentImage.PixelWidth} × {_currentImage.PixelHeight})";
+                UpdateImageInfoText();
 
                 SetControlsEnabled(true);
                 _isManualZoom = false;
@@ -287,14 +296,41 @@ namespace ImageEditor
                         : new PngBitmapEncoder();
 
                     encoder.Frames.Add(BitmapFrame.Create(src));
-                    using var fs = File.Create(dlg.FileName);
-                    encoder.Save(fs);
+                    using (var fs = File.Create(dlg.FileName))
+                    {
+                        encoder.Save(fs);
+                    }
+                    _currentPath = dlg.FileName;
+                    UpdateImageInfoText();
                     System.Windows.MessageBox.Show("Image saved successfully!", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
                     System.Windows.MessageBox.Show($"Failed to save: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                 }
+            }
+        }
+
+        private void UpdateImageInfoText()
+        {
+            if (_currentImage == null)
+            {
+                FileNameText.Text = "";
+                return;
+            }
+
+            string name = string.IsNullOrEmpty(_currentPath) ? "Untitled" : System.IO.Path.GetFileName(_currentPath);
+            int w = _currentImage.PixelWidth;
+            int h = _currentImage.PixelHeight;
+            long size = GetOriginalFileSize();
+
+            if (size > 0)
+            {
+                FileNameText.Text = $"— {name} ({w} × {h}, {FormatBytes(size)})";
+            }
+            else
+            {
+                FileNameText.Text = $"— {name} ({w} × {h})";
             }
         }
 
@@ -323,7 +359,7 @@ namespace ImageEditor
                 }
             }
 
-            FileNameText.Text = $"— {System.IO.Path.GetFileName(_currentPath)} ({_currentImage.PixelWidth} × {_currentImage.PixelHeight})";
+            UpdateImageInfoText();
             _isManualZoom = false;
             FitImageToViewport();
         }
@@ -729,14 +765,14 @@ namespace ImageEditor
             else if (Math.Abs(pt.X - _cropRect.Right) <= edgeThreshold && pt.Y >= _cropRect.Y - edgeThreshold && pt.Y <= _cropRect.Bottom + edgeThreshold)
                 _dragMode = DragMode.ResizeR;
 
-            // 3. Geser di DALAM crop: yang digeser adalah CROP nya bukan zoom nya
+            // 3. Drag INSIDE crop: move crop box itself, not pan/zoom
             else if (_cropRect.Contains(pt))
             {
                 _dragMode = DragMode.Move;
                 CropCanvas.Cursor = Cursors.SizeAll;
             }
 
-            // 4. Geser di LUAR crop: geser posisi zoom
+            // 4. Drag OUTSIDE crop: pan view position
             else
             {
                 _dragMode = DragMode.Pan;
@@ -759,7 +795,7 @@ namespace ImageEditor
             // Clamped position strictly inside the image canvas [0, imgW] and [0, imgH]
             Point pt = new Point(Math.Clamp(rawPt.X, 0, imgW), Math.Clamp(rawPt.Y, 0, imgH));
 
-            // 1. If currently panning (geser posisi zoom)
+            // 1. If currently panning the view
             if (_dragMode == DragMode.Pan)
             {
                 Point currentViewport = e.GetPosition(ViewportGrid);
@@ -807,12 +843,12 @@ namespace ImageEditor
                 {
                     CropCanvas.Cursor = Cursors.SizeWE;
                 }
-                // Di dalam crop: kursor move crop
+                // Inside crop: cursor to move crop
                 else if (_cropRect.Contains(rawPt))
                 {
                     CropCanvas.Cursor = Cursors.SizeAll;
                 }
-                // Di luar crop: kursor pan zoom
+                // Outside crop: cursor to pan view
                 else
                 {
                     CropCanvas.Cursor = Cursors.ScrollAll;
@@ -822,7 +858,7 @@ namespace ImageEditor
 
             switch (_dragMode)
             {
-                // Di dalam crop: geser kotak crop (bukan zoom)
+                // Inside crop: move crop box (not pan view)
                 case DragMode.Move:
                     double dx = rawPt.X - _dragStart.X;
                     double dy = rawPt.Y - _dragStart.Y;
@@ -947,11 +983,22 @@ namespace ImageEditor
             RotateBtn.IsEnabled = enabled;
             FlipBtn.IsEnabled = enabled;
             SaveBtn.IsEnabled = enabled;
+            CompressBtn.IsEnabled = enabled;
             UpdateHistoryButtonStates();
         }
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
+            if (CompressModal.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    CloseCompressModal();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (_isCropping)
             {
                 if (e.Key == Key.Enter)
@@ -1423,6 +1470,356 @@ namespace ImageEditor
             var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
             rtb.Render(dv);
             return rtb;
+        }
+
+        #endregion
+
+        #region Image Compression Logic
+
+        private void Compress_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentImage == null) return;
+            if (_isCropping) ExitCropMode();
+
+            CompressResolutionText.Text = $"{_currentImage.PixelWidth} × {_currentImage.PixelHeight} px";
+            _originalFileSize = GetOriginalFileSize();
+            CompressOriginalSizeText.Text = FormatBytes(_originalFileSize);
+
+            // Automatically match output format to the loaded image
+            string ext = !string.IsNullOrEmpty(_currentPath)
+                ? System.IO.Path.GetExtension(_currentPath).ToLowerInvariant()
+                : ".png";
+
+            _compressFormat = (ext == ".jpg" || ext == ".jpeg") ? "jpg" : "png";
+
+            // Restore last session slider value, default to 100% (original resolution/size)
+            double savedSlider = _appConfig?.LastCompressSliderValue ?? 100.0;
+            if (savedSlider < 10.0 || savedSlider > 100.0) savedSlider = 100.0;
+            CompressQualitySlider.Value = savedSlider;
+
+            CompressModal.Visibility = Visibility.Visible;
+            UpdateCompressionEstimate();
+        }
+
+        private void CloseCompressModal_Click(object sender, RoutedEventArgs e)
+        {
+            CloseCompressModal();
+        }
+
+        private void CloseCompressModal()
+        {
+            CompressModal.Visibility = Visibility.Collapsed;
+        }
+
+        private void CompressQualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (CompressQualityValueText == null || CompressQualitySlider == null || _currentImage == null) return;
+
+            if (_appConfig != null)
+            {
+                _appConfig.LastCompressSliderValue = Math.Round(e.NewValue);
+                _appConfig.Save();
+            }
+
+            UpdateCompressionEstimate();
+        }
+
+        private void CompressMinus_Click(object sender, RoutedEventArgs e)
+        {
+            if (CompressQualitySlider == null) return;
+            if (CompressQualitySlider.Value > CompressQualitySlider.Minimum)
+            {
+                CompressQualitySlider.Value = Math.Max(CompressQualitySlider.Minimum, CompressQualitySlider.Value - 1);
+            }
+        }
+
+        private void CompressPlus_Click(object sender, RoutedEventArgs e)
+        {
+            if (CompressQualitySlider == null) return;
+            if (CompressQualitySlider.Value < CompressQualitySlider.Maximum)
+            {
+                CompressQualitySlider.Value = Math.Min(CompressQualitySlider.Maximum, CompressQualitySlider.Value + 1);
+            }
+        }
+
+        private void UpdateCompressionEstimate()
+        {
+            if (_currentImage == null || CompressNewSizeText == null) return;
+
+            int percent = (int)Math.Round(CompressQualitySlider.Value);
+            CompressQualityValueText.Text = $"{percent}%";
+
+            if (CompressMinusBtn != null) CompressMinusBtn.IsEnabled = percent > (int)CompressQualitySlider.Minimum;
+            if (CompressPlusBtn != null) CompressPlusBtn.IsEnabled = percent < (int)CompressQualitySlider.Maximum;
+
+            if (_originalFileSize <= 0)
+            {
+                _originalFileSize = GetOriginalFileSize();
+            }
+
+            if (percent >= 100)
+            {
+                _lastCompressedData = null;
+                _lastCompressedQuality = 100;
+                _lastCompressedFormat = _compressFormat;
+
+                CompressNewSizeText.Text = FormatBytes(_originalFileSize);
+                CompressReductionText.Text = " (Original)";
+                CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
+                return;
+            }
+
+            ComputeRealCompressionSize();
+        }
+
+        private void ComputeRealCompressionSize()
+        {
+            if (_currentImage == null || CompressNewSizeText == null) return;
+
+            int percent = (int)Math.Round(CompressQualitySlider.Value);
+            if (percent >= 100)
+            {
+                _lastCompressedData = null;
+                _lastCompressedQuality = 100;
+                _lastCompressedFormat = _compressFormat;
+                CompressNewSizeText.Text = FormatBytes(_originalFileSize);
+                CompressReductionText.Text = " (Original)";
+                CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
+                return;
+            }
+
+            try
+            {
+                BitmapSource baseSource = GetComposedBitmap();
+                byte[] data = EncodeCompressedImage(baseSource, _compressFormat, percent);
+                _lastCompressedData = data;
+                _lastCompressedQuality = percent;
+                _lastCompressedFormat = _compressFormat;
+
+                long actualBytes = data.Length;
+                CompressNewSizeText.Text = FormatBytes(actualBytes);
+
+                if (_originalFileSize > 0)
+                {
+                    double diff = (1.0 - ((double)actualBytes / _originalFileSize)) * 100.0;
+                    if (diff > 0.5)
+                    {
+                        CompressReductionText.Text = $" (-{diff:F0}%)";
+                        CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4CAF50"));
+                    }
+                    else if (diff < -0.5)
+                    {
+                        CompressReductionText.Text = $" (+{-diff:F0}%)";
+                        CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFA726"));
+                    }
+                    else
+                    {
+                        CompressReductionText.Text = " (0%)";
+                        CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void SaveCompressed_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentImage == null) return;
+
+            string ext = _compressFormat == "jpg"
+                ? (!string.IsNullOrEmpty(_currentPath) && System.IO.Path.GetExtension(_currentPath).Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpeg" : ".jpg")
+                : ".png";
+            string filter = _compressFormat == "jpg" ? "JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg" : "PNG Image (*.png)|*.png";
+            string baseName = string.IsNullOrEmpty(_currentPath)
+                ? "compressed_image"
+                : System.IO.Path.GetFileNameWithoutExtension(_currentPath) + "_compressed";
+
+            var dlg = new SaveFileDialog
+            {
+                Title = "Save Compressed Image",
+                Filter = filter,
+                DefaultExt = ext,
+                FileName = baseName + ext
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                try
+                {
+                    int percent = (int)Math.Round(CompressQualitySlider.Value);
+                    byte[] data;
+
+                    if (percent >= 100 && MainInkCanvas.Strokes.Count == 0 && !_historyManager.CanUndo && !string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
+                    {
+                        File.Copy(_currentPath, dlg.FileName, true);
+                        CloseCompressModal();
+                        System.Windows.MessageBox.Show(
+                            "Image compressed and saved successfully.",
+                            "Success",
+                            System.Windows.MessageBoxButton.OK,
+                            System.Windows.MessageBoxImage.Information);
+                        return;
+                    }
+
+                    if (_lastCompressedData != null && _lastCompressedQuality == percent && _lastCompressedFormat == _compressFormat)
+                    {
+                        data = _lastCompressedData;
+                    }
+                    else
+                    {
+                        BitmapSource baseSource = GetComposedBitmap();
+                        data = EncodeCompressedImage(baseSource, _compressFormat, percent);
+                    }
+
+                    File.WriteAllBytes(dlg.FileName, data);
+                    CloseCompressModal();
+
+                    System.Windows.MessageBox.Show(
+                        "Image compressed and saved successfully.",
+                        "Success",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Failed to save compressed image: {ex.Message}",
+                        "Error",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private static byte[] EncodeCompressedImage(BitmapSource source, string format, int percent)
+        {
+            if (format == "jpg")
+            {
+                var prepared = PrepareForJpeg(source);
+                int quality = percent >= 100 ? 100 : Math.Clamp(percent, 5, 98);
+                return EncodeJpeg(prepared, quality);
+            }
+            else
+            {
+                if (percent >= 100)
+                {
+                    return EncodePng(source);
+                }
+
+                // Map percent (10 - 99) to quantization step (2 - 28)
+                int step = Math.Clamp(2 + (int)Math.Round((99 - percent) * 0.29), 2, 28);
+                return EncodePngWithStep(source, step);
+            }
+        }
+
+        private static byte[] EncodeJpeg(BitmapSource source, int quality)
+        {
+            using var ms = new MemoryStream();
+            var encoder = new JpegBitmapEncoder { QualityLevel = Math.Clamp(quality, 1, 100) };
+            encoder.Frames.Add(BitmapFrame.Create(source));
+            encoder.Save(ms);
+            return ms.ToArray();
+        }
+
+        private static byte[] EncodePng(BitmapSource source)
+        {
+            using var ms = new MemoryStream();
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(source));
+            encoder.Save(ms);
+            return ms.ToArray();
+        }
+
+        private static byte[] EncodePngWithStep(BitmapSource source, int step)
+        {
+            if (step <= 1) return EncodePng(source);
+
+            BitmapSource bgraSource = source;
+            if (source.Format != PixelFormats.Bgra32 && source.Format != PixelFormats.Bgr32)
+            {
+                bgraSource = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+            }
+
+            int width = bgraSource.PixelWidth;
+            int height = bgraSource.PixelHeight;
+            int stride = width * 4;
+            byte[] pixels = new byte[stride * height];
+            bgraSource.CopyPixels(pixels, stride, 0);
+
+            // Precompute lookup table for quantization step
+            byte[] lut = new byte[256];
+            for (int c = 0; c < 256; c++)
+            {
+                int val = (int)Math.Round((double)c / step) * step;
+                lut[c] = (byte)Math.Clamp(val, 0, 255);
+            }
+
+            for (int i = 0; i < pixels.Length; i += 4)
+            {
+                pixels[i] = lut[pixels[i]];         // B
+                pixels[i + 1] = lut[pixels[i + 1]]; // G
+                pixels[i + 2] = lut[pixels[i + 2]]; // R
+            }
+
+            var resultSource = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+            return EncodePng(resultSource);
+        }
+
+        private static BitmapSource PrepareForJpeg(BitmapSource source)
+        {
+            // If format supports transparency, composite over white background to avoid black borders
+            bool hasAlpha = source.Format == PixelFormats.Bgra32 ||
+                            source.Format == PixelFormats.Pbgra32 ||
+                            source.Format == PixelFormats.Prgba64 ||
+                            source.Format == PixelFormats.Rgba64;
+
+            if (!hasAlpha) return source;
+
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, source.PixelWidth, source.PixelHeight));
+                dc.DrawImage(source, new Rect(0, 0, source.PixelWidth, source.PixelHeight));
+            }
+            var rtb = new RenderTargetBitmap(source.PixelWidth, source.PixelHeight, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            if (rtb.CanFreeze) rtb.Freeze();
+            return rtb;
+        }
+
+        private long GetOriginalFileSize()
+        {
+            if (!string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
+            {
+                try
+                {
+                    return new FileInfo(_currentPath).Length;
+                }
+                catch { }
+            }
+
+            if (_currentImage != null)
+            {
+                try
+                {
+                    using var ms = new MemoryStream();
+                    var enc = new PngBitmapEncoder();
+                    enc.Frames.Add(BitmapFrame.Create(_currentImage));
+                    enc.Save(ms);
+                    return ms.Length;
+                }
+                catch { }
+            }
+
+            return 0;
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes <= 0) return "0 B";
+            if (bytes < 1024) return $"{bytes} B";
+            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+            return $"{bytes / (1024.0 * 1024.0):F2} MB";
         }
 
         #endregion
