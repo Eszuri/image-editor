@@ -5,7 +5,6 @@ using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using Wpf.Ui.Appearance;
@@ -264,7 +263,7 @@ namespace ImageEditor
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
                     FitImageToViewport();
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
+                }), DispatcherPriority.Loaded);
             }
             catch (Exception ex)
             {
@@ -1563,25 +1562,6 @@ namespace ImageEditor
                 _lastCompressedQuality = 100;
                 _lastCompressedFormat = _compressFormat;
 
-                CompressNewSizeText.Text = FormatBytes(_originalFileSize);
-                CompressReductionText.Text = " (Original)";
-                CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
-                return;
-            }
-
-            ComputeRealCompressionSize();
-        }
-
-        private void ComputeRealCompressionSize()
-        {
-            if (_currentImage == null || CompressNewSizeText == null) return;
-
-            int percent = (int)Math.Round(CompressQualitySlider.Value);
-            if (percent >= 100)
-            {
-                _lastCompressedData = null;
-                _lastCompressedQuality = 100;
-                _lastCompressedFormat = _compressFormat;
                 CompressNewSizeText.Text = FormatBytes(_originalFileSize);
                 CompressReductionText.Text = " (Original)";
                 CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));

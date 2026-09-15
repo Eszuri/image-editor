@@ -5,7 +5,7 @@ namespace ImageEditor
 {
     public class AppConfig
     {
-        public bool IsSidebarCollapsed { get; set; } = false;
+        public bool IsSidebarCollapsed { get; set; }
         public string PenColorHex { get; set; } = "#0078D4";
         public double PenThickness { get; set; } = 3.0;
         public string PenShape { get; set; } = "Freehand";
@@ -40,6 +40,8 @@ namespace ImageEditor
             return new AppConfig();
         }
 
+        private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
+
         public void Save()
         {
             try
@@ -51,7 +53,7 @@ namespace ImageEditor
                     Directory.CreateDirectory(dir);
                 }
 
-                string json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+                string json = JsonSerializer.Serialize(this, s_jsonOptions);
                 File.WriteAllText(path, json);
             }
             catch

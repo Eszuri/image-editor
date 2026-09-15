@@ -67,7 +67,7 @@ namespace ImageEditor
     {
         private readonly List<IEditorAction> _undoStack = new();
         private readonly List<IEditorAction> _redoStack = new();
-        public int MaxHistoryCount { get; set; } = 50;
+        public const int MaxHistoryCount = 50;
 
         public bool CanUndo => _undoStack.Count > 0;
         public bool CanRedo => _redoStack.Count > 0;
