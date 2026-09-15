@@ -10,6 +10,13 @@ namespace ImageEditor
         public double PenThickness { get; set; } = 3.0;
         public string PenShape { get; set; } = "Freehand";
         public double LastCompressSliderValue { get; set; } = 100.0;
+        public string LastBatchMode { get; set; } = "Slider";
+        public double LastBatchTargetSize { get; set; } = 500;
+        public string LastBatchTargetUnit { get; set; } = "KB";
+        public bool LastBatchSkipSmaller { get; set; } = true;
+        public double LastBatchPercentage { get; set; } = 50.0;
+        public string LastBatchOutputOption { get; set; } = "Subfolder";
+        public string LastBatchCustomFolder { get; set; } = "";
 
         public static string ConfigFilePath
         {

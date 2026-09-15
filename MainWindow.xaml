@@ -44,7 +44,86 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <ui:Button Content="Open Image" Icon="{ui:SymbolIcon FolderOpen24}" Click="Open_Click" Appearance="Primary" Margin="0,0,8,0"/>
                     <ui:Button x:Name="SaveBtn" Content="Save" Icon="{ui:SymbolIcon Save24}" Click="Save_Click" IsEnabled="False" Margin="0,0,8,0"/>
-                    <ui:Button x:Name="CompressBtn" Content="Compress" Icon="{ui:SymbolIcon ResizeImage24}" Click="Compress_Click" IsEnabled="False" Margin="0,0,12,0" ToolTip="Compress Image Size without Changing Resolution"/>
+                    <!-- Compress Dropdown Button (Option B) -->
+                    <Grid Margin="0,0,12,0">
+                        <ui:Button x:Name="CompressBtn" Click="CompressBtn_Click" ToolTip="Image Compression Options">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="ResizeImage24" FontSize="16" Margin="0,0,6,0"/>
+                                <TextBlock Text="Compress" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <ui:SymbolIcon Symbol="ChevronDown16" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </ui:Button>
+
+                        <Popup x:Name="CompressMenuPopup"
+                               PlacementTarget="{Binding ElementName=CompressBtn}"
+                               Placement="Bottom"
+                               HorizontalOffset="0"
+                               VerticalOffset="4"
+                               StaysOpen="False"
+                               AllowsTransparency="True">
+                            <Border Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                                    CornerRadius="8" Padding="6" Width="260">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.5" Direction="270"/>
+                                </Border.Effect>
+                                <StackPanel>
+                                    <!-- Option 1: Compress Current Image -->
+                                    <Border x:Name="CompressCurrentItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand" MouseDown="CompressCurrentItem_MouseDown">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#303030"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter Property="Opacity" Value="0.4"/>
+                                                        <Setter Property="Cursor" Value="Arrow"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ui:SymbolIcon Symbol="Image24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="Compress Current Image" FontWeight="SemiBold" FontSize="12"/>
+                                                <TextBlock Text="Optimize active image on canvas" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
+                                    <Border Height="1" Background="#333333" Margin="4,4"/>
+
+                                    <!-- Option 2: Batch Compress -->
+                                    <Border x:Name="BatchCompressItem" Background="Transparent" CornerRadius="6" Padding="10,8" Cursor="Hand" MouseDown="BatchCompressItem_MouseDown">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#303030"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ui:SymbolIcon Symbol="FolderZip24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="Batch Compress Images..." FontWeight="SemiBold" FontSize="12"/>
+                                                <TextBlock Text="Compress multiple files or folders" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
 
                     <Border Width="1" Height="20" Background="{DynamicResource CardStrokeColorDefaultBrush}" Margin="0,0,12,0"/>
 
@@ -604,6 +683,253 @@
                         <ui:Button Grid.Column="1" Content="Save Compressed Image..." Icon="{ui:SymbolIcon Save24}" Appearance="Primary" Click="SaveCompressed_Click"/>
                     </Grid>
                 </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Batch Compress Modal Dialog Overlay -->
+        <Grid x:Name="BatchCompressModal" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" Background="#B2000000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="840" MaxHeight="660" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                    CornerRadius="10" Padding="20,16">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.6" Direction="270"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- 0: Header -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- 1: Queue Toolbar -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- 2: Queue List Box -->
+                        <RowDefinition Height="*"/>
+                        <!-- 3: Options Card (Settings + Destination) -->
+                        <RowDefinition Height="Auto"/>
+                        <!-- 4: Progress Bar & Action Footer -->
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Row 0: Modal Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="FolderZip24" FontSize="20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Text="Batch Compress Images" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseBatchCompressModal_Click" Padding="6" ToolTip="Close (Esc)"/>
+                    </Grid>
+
+                    <!-- Row 1: Queue Actions Toolbar -->
+                    <Border Grid.Row="1" Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="10,6" Margin="0,0,0,10">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:Button Content="Add Files..." Icon="{ui:SymbolIcon DocumentAdd24}" Click="BatchAddFiles_Click" Appearance="Secondary" Margin="0,0,8,0" Padding="10,5"/>
+                                <ui:Button Content="Add Folder..." Icon="{ui:SymbolIcon FolderAdd24}" Click="BatchAddFolder_Click" Appearance="Secondary" Margin="0,0,8,0" Padding="10,5"/>
+                                <ui:Button x:Name="BatchClearBtn" Content="Clear List" Icon="{ui:SymbolIcon Delete24}" Click="BatchClearQueue_Click" Appearance="Transparent" Margin="0,0,8,0" Padding="10,5"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BatchQueueSummaryText" Text="0 files (0 B)" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Row 2: Queue List Box with Drag and Drop -->
+                    <Border Grid.Row="2" Background="#141414" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="8" MinHeight="170" MaxHeight="220"
+                            AllowDrop="True" Drop="BatchQueue_Drop" DragOver="BatchQueue_DragOver">
+                        <Grid>
+                            <!-- Empty State Placeholder -->
+                            <StackPanel x:Name="BatchEmptyPlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False">
+                                <ui:SymbolIcon Symbol="ImageAdd24" FontSize="36" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,0,0,8" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Drag and drop images or folders here" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                <TextBlock Text="or click 'Add Files...' or 'Add Folder...' above (JPG, PNG, WEBP, BMP)" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Items ListView -->
+                            <ListView x:Name="BatchListView" Background="Transparent" BorderThickness="0"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      SelectionMode="Single">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#242424" BorderThickness="0,0,0,1" Padding="8,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="220"/>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="90"/>
+                                                    <ColumnDefinition Width="30"/>
+                                                    <ColumnDefinition Width="130"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="32"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- File Name + ToolTip -->
+                                                <TextBlock Text="{Binding FileName}" ToolTip="{Binding FilePath}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+
+                                                <!-- Dimensions -->
+                                                <TextBlock Grid.Column="1" Text="{Binding ResolutionFormatted}" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11" VerticalAlignment="Center"/>
+
+                                                <!-- Original Size -->
+                                                <TextBlock Grid.Column="2" Text="{Binding OriginalSizeFormatted}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="11" VerticalAlignment="Center"/>
+
+                                                <!-- Arrow -->
+                                                <ui:SymbolIcon Grid.Column="3" Symbol="ArrowRight16" FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" VerticalAlignment="Center"/>
+
+                                                <!-- New Size + Reduction -->
+                                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding NewSizeFormatted}" FontWeight="Bold" FontSize="11" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ReductionFormatted, StringFormat=' ({0})'}" Foreground="#4CAF50" FontWeight="Bold" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <!-- Status Badge -->
+                                                <Border Grid.Column="5" HorizontalAlignment="Left" VerticalAlignment="Center" Padding="8,2" CornerRadius="4" Background="#1E1E1E">
+                                                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusColor}" FontWeight="SemiBold" FontSize="11"/>
+                                                </Border>
+
+                                                <!-- Remove button -->
+                                                <ui:Button Grid.Column="6" Icon="{ui:SymbolIcon Dismiss16}" Appearance="Transparent" Padding="4" Click="BatchRemoveItem_Click" Tag="{Binding}" ToolTip="Remove from list"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
+                    </Border>
+
+                    <!-- Row 3: Compression Settings & Output Destination Card -->
+                    <Grid Grid.Row="3" Margin="0,10,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left: Compression Mode Card -->
+                        <Border Grid.Column="0" Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,6,0">
+                            <StackPanel>
+                                <TextBlock Text="Compression Mode" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8" Foreground="{DynamicResource AccentFillColorDefaultBrush}"/>
+
+                                <!-- Mode 1: Quality Slider -->
+                                <RadioButton x:Name="BatchModeSliderRadio" GroupName="BatchModeGroup" Content="Quality Slider" FontWeight="SemiBold" IsChecked="True" Checked="BatchMode_Changed" Margin="0,0,0,4"/>
+                                <StackPanel x:Name="BatchSliderControls" Margin="20,0,0,8">
+                                    <Grid Margin="0,2,0,4">
+                                        <TextBlock Text="Quality:" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock x:Name="BatchSliderValueText" Text="80%" HorizontalAlignment="Right" FontWeight="Bold" Foreground="{DynamicResource AccentFillColorDefaultBrush}" FontSize="11"/>
+                                    </Grid>
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <RepeatButton x:Name="BatchSliderMinusBtn" Grid.Column="0" Width="24" Height="24" Delay="300" Interval="50" Click="BatchSliderMinus_Click" Cursor="Hand">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="#252525" BorderBrush="#3A3A3A" BorderThickness="1" CornerRadius="4">
+                                                        <ui:SymbolIcon Symbol="Subtract16" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                        <Slider x:Name="BatchQualitySlider" Grid.Column="1" Margin="6,0" Minimum="10" Maximum="100" Value="80" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="BatchQualitySlider_ValueChanged"/>
+                                        <RepeatButton x:Name="BatchSliderPlusBtn" Grid.Column="2" Width="24" Height="24" Delay="300" Interval="50" Click="BatchSliderPlus_Click" Cursor="Hand">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Background="#252525" BorderBrush="#3A3A3A" BorderThickness="1" CornerRadius="4">
+                                                        <ui:SymbolIcon Symbol="Add16" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Mode 2: Target File Size -->
+                                <RadioButton x:Name="BatchModeTargetSizeRadio" GroupName="BatchModeGroup" Content="Target File Size (Max)" FontWeight="SemiBold" Checked="BatchMode_Changed" Margin="0,0,0,4"/>
+                                <StackPanel x:Name="BatchTargetSizeControls" Margin="20,0,0,8" Visibility="Collapsed">
+                                    <Grid Margin="0,2,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="70"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Max Size:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        <TextBox x:Name="BatchTargetSizeInput" Grid.Column="1" Text="500" Margin="0,0,6,0" Padding="6,3" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox"/>
+                                        <ComboBox x:Name="BatchTargetSizeUnit" Grid.Column="2" SelectedIndex="0" Padding="6,3">
+                                            <ComboBoxItem Content="KB"/>
+                                            <ComboBoxItem Content="MB"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <CheckBox x:Name="BatchSkipSmallerCheck" Content="Skip images already smaller than target" IsChecked="True" FontSize="11" Margin="0,4,0,0"/>
+                                </StackPanel>
+
+                                <!-- Mode 3: Percentage of Original Size -->
+                                <RadioButton x:Name="BatchModePercentageRadio" GroupName="BatchModeGroup" Content="Target % of Original Size" FontWeight="SemiBold" Checked="BatchMode_Changed" Margin="0,0,0,2"/>
+                                <StackPanel x:Name="BatchPercentageControls" Margin="20,0,0,0" Visibility="Collapsed">
+                                    <Grid Margin="0,2,0,4">
+                                        <TextBlock Text="Target Size Ratio:" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock x:Name="BatchPercentageValueText" Text="50%" HorizontalAlignment="Right" FontWeight="Bold" Foreground="{DynamicResource AccentFillColorDefaultBrush}" FontSize="11"/>
+                                    </Grid>
+                                    <Slider x:Name="BatchPercentageSlider" Minimum="10" Maximum="90" Value="50" IsSnapToTickEnabled="True" TickFrequency="5" ValueChanged="BatchPercentageSlider_ValueChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Right: Output Destination Card -->
+                        <Border Grid.Column="1" Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="6,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Output Destination" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,8" Foreground="{DynamicResource AccentFillColorDefaultBrush}"/>
+
+                                <RadioButton x:Name="BatchDestSubfolderRadio" GroupName="BatchDestGroup" Content="Subfolder in original directory" FontWeight="SemiBold" IsChecked="True" Checked="BatchDest_Changed" Margin="0,0,0,4"/>
+                                <StackPanel Margin="20,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Subfolder name:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                        <TextBox x:Name="BatchSubfolderNameInput" Grid.Column="1" Text="_compressed" Padding="6,3" VerticalContentAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <RadioButton x:Name="BatchDestCustomRadio" GroupName="BatchDestGroup" Content="Save to custom folder" FontWeight="SemiBold" Checked="BatchDest_Changed" Margin="0,0,0,4"/>
+                                <StackPanel Margin="20,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ui:TextBox x:Name="BatchCustomFolderInput" Grid.Column="0" IsReadOnly="True" PlaceholderText="Select output folder..." Margin="0,0,6,0" Padding="6,3" VerticalContentAlignment="Center"/>
+                                        <ui:Button Grid.Column="1" Content="Browse..." Click="BatchBrowseCustomFolder_Click" Padding="8,3"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <RadioButton x:Name="BatchDestOverwriteRadio" GroupName="BatchDestGroup" Content="Overwrite original files (Warning)" FontWeight="SemiBold" Foreground="#FFA726" Checked="BatchDest_Changed" Margin="0,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Row 4: Progress Bar & Footer Actions -->
+                    <StackPanel Grid.Row="4" Margin="0,4,0,0">
+                        <!-- Progress Bar & Status Text -->
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock x:Name="BatchProgressStatusText" Text="Ready to compress" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock x:Name="BatchProgressPercentText" Text="" HorizontalAlignment="Right" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource AccentFillColorDefaultBrush}"/>
+                        </Grid>
+                        <ProgressBar x:Name="BatchProgressBar" Height="4" Minimum="0" Maximum="100" Value="0" Margin="0,0,0,10" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Background="#252525"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <ui:Button Content="Close" Click="CloseBatchCompressModal_Click" Appearance="Secondary" VerticalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:Button x:Name="BatchOpenFolderBtn" Content="Open Folder" Icon="{ui:SymbolIcon FolderOpen24}" Click="BatchOpenFolder_Click" Appearance="Secondary" Margin="0,0,8,0" Visibility="Collapsed"/>
+                                <ui:Button x:Name="BatchCancelBtn" Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Click="BatchCancel_Click" Appearance="Danger" Margin="0,0,8,0" Visibility="Collapsed"/>
+                                <ui:Button x:Name="BatchStartBtn" Content="Start Compression" Icon="{ui:SymbolIcon Play24}" Click="BatchStart_Click" Appearance="Primary"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
             </Border>
         </Grid>
     </Grid>
