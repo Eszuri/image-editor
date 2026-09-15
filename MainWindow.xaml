@@ -1,0 +1,460 @@
+<ui:FluentWindow x:Class="ImageEditor.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="Image Editor"
+        Height="720" Width="1040"
+        MinWidth="700" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="Mica"
+        AllowDrop="True"
+        Drop="Window_Drop"
+        DragOver="Window_DragOver"
+        KeyDown="Window_KeyDown"
+        Icon="icon.ico">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Title Bar -->
+            <RowDefinition Height="Auto"/>
+            <!-- Action Toolbar (Top) -->
+            <RowDefinition Height="Auto"/>
+            <!-- Image Viewing Area -->
+            <RowDefinition Height="*"/>
+            <!-- Docked Bottom Crop Bar (Non-floating) -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Standard Title Bar -->
+        <ui:TitleBar Grid.Row="0" Height="36" Padding="0" Margin="0">
+            <ui:TitleBar.Header>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                    <Image Source="icon.png" Width="18" Height="18" Margin="0,0,8,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <TextBlock Text="Image Editor" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorPrimaryBrush}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
+
+        <!-- Top Action Toolbar -->
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
+                Padding="16,8">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:Button Content="Open Image" Icon="{ui:SymbolIcon FolderOpen24}" Click="Open_Click" Appearance="Primary" Margin="0,0,8,0"/>
+                    <ui:Button x:Name="SaveBtn" Content="Save" Icon="{ui:SymbolIcon Save24}" Click="Save_Click" IsEnabled="False" Margin="0,0,12,0"/>
+
+                    <Border Width="1" Height="20" Background="{DynamicResource CardStrokeColorDefaultBrush}" Margin="0,0,12,0"/>
+
+                    <!-- Undo Button -->
+                    <ui:Button x:Name="UndoBtn" Icon="{ui:SymbolIcon ArrowUndo24}" ToolTip="Undo (Ctrl+Z)" Click="Undo_Click" IsEnabled="False" Margin="0,0,8,0"/>
+
+                    <!-- Redo Button -->
+                    <ui:Button x:Name="RedoBtn" Icon="{ui:SymbolIcon ArrowRedo24}" ToolTip="Redo (Ctrl+Y)" Click="Redo_Click" IsEnabled="False" Margin="0,0,8,0"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="ZoomLevelText" Text="" Foreground="{DynamicResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,16,0" FontSize="12"/>
+                    <TextBlock x:Name="FileNameText" Text="" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Workspace: Left Sidebar + Center Viewport -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Collapsible Left Sidebar -->
+            <Border x:Name="SidebarBorder" Grid.Column="0"
+                    Width="145"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="0,0,1,0"
+                    Padding="6,8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Sidebar Toggle Button (Expand / Collapse) -->
+                    <ui:Button x:Name="SidebarToggleBtn" Grid.Row="0"
+                               HorizontalAlignment="Stretch"
+                               HorizontalContentAlignment="Left"
+                               Padding="8,7"
+                               Margin="0,0,0,10"
+                               Appearance="Secondary"
+                               ToolTip="Toggle Sidebar"
+                               Click="SidebarToggle_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon x:Name="SidebarToggleIcon" Symbol="PanelLeftContract20" FontSize="16"/>
+                            <TextBlock x:Name="SidebarToggleText" Text="Tools" Margin="10,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
+                        </StackPanel>
+                    </ui:Button>
+
+                    <!-- Editing Tools Stack -->
+                    <StackPanel Grid.Row="1">
+                        <!-- Cursor / Pan Tool -->
+                        <ui:Button x:Name="CursorBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   Appearance="Primary"
+                                   ToolTip="Cursor / Pan (V)"
+                                   Click="Cursor_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Cursor24" FontSize="18"/>
+                                <TextBlock x:Name="CursorText" Text="Cursor" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+
+                        <!-- Crop Tool -->
+                        <ui:Button x:Name="CropBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   IsEnabled="False"
+                                   ToolTip="Crop Image (C)"
+                                   Click="Crop_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Crop24" FontSize="18"/>
+                                <TextBlock x:Name="CropText" Text="Crop" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+
+                        <!-- Pen Tool with Color Dot -->
+                        <ui:Button x:Name="PenBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   IsEnabled="False"
+                                   ToolTip="Pen Tool (P)"
+                                   Click="Pen_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Grid Width="18" Height="18">
+                                    <ui:SymbolIcon Symbol="Pen24" FontSize="18"/>
+                                    <Border x:Name="PenColorIndicator" Width="7" Height="7" CornerRadius="3.5"
+                                            Background="#0078D4" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                            BorderBrush="#202020" BorderThickness="1"/>
+                                </Grid>
+                                <TextBlock x:Name="PenText" Text="Pen" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+                    </StackPanel>
+
+                    <!-- Divider -->
+                    <Border Grid.Row="2" Height="1" Background="{DynamicResource CardStrokeColorDefaultBrush}" Margin="2,6,2,10"/>
+
+                    <!-- Transformation Tools Stack -->
+                    <StackPanel Grid.Row="3">
+                        <ui:Button x:Name="RotateBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   IsEnabled="False"
+                                   ToolTip="Rotate 90° Clockwise"
+                                   Click="Rotate_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowRotateClockwise24" FontSize="18"/>
+                                <TextBlock x:Name="RotateText" Text="Rotate 90°" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+
+                        <ui:Button x:Name="FlipBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   IsEnabled="False"
+                                   ToolTip="Flip Horizontal"
+                                   Click="Flip_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FlipHorizontal24" FontSize="18"/>
+                                <TextBlock x:Name="FlipText" Text="Flip" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Pen Settings Flyout Popup (Pops out to the right of the sidebar) -->
+            <Popup x:Name="PenSettingsPopup"
+                   PlacementTarget="{Binding ElementName=PenBtn}"
+                   Placement="Right"
+                   HorizontalOffset="8"
+                   StaysOpen="False"
+                   AllowsTransparency="True">
+                <Border Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                        CornerRadius="8" Padding="14,12" Margin="0,0,0,0"
+                        Width="290">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="16" ShadowDepth="4" Opacity="0.5" Direction="270"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <!-- Live Pen Preview Card -->
+                        <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- Brush tip dot preview -->
+                                <Border Width="38" Height="38" Background="#0D0D0D" CornerRadius="6" BorderBrush="#242424" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Ellipse x:Name="PenThicknessPreviewDot" Width="3" Height="3" Fill="#0078D4" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+
+                                <!-- Stroke line preview -->
+                                <Border Grid.Column="1" Margin="12,0,4,0" VerticalAlignment="Center" ClipToBounds="True">
+                                    <Line x:Name="PenThicknessPreviewLine" X1="0" Y1="19" X2="190" Y2="19"
+                                          Stroke="#0078D4" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- Thickness Slider with Numeric Value -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="42"/>
+                            </Grid.ColumnDefinitions>
+                            <Slider x:Name="ThicknessSlider" Minimum="1" Maximum="30" Value="3"
+                                    IsSnapToTickEnabled="True" TickFrequency="1"
+                                    ValueChanged="ThicknessSlider_ValueChanged"
+                                    VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ThicknessValueText" Grid.Column="1" Text="3 px"
+                                       FontWeight="Bold" FontSize="12" TextAlignment="Right"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        </Grid>
+
+                        <!-- 16 Colors Grid (2 rows of 8) -->
+                        <!-- Row 1 -->
+                        <UniformGrid Rows="1" Columns="8" Margin="0,0,0,6">
+                            <Border x:Name="ColorBorder_FFEB3B" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#FFEB3B" Cursor="Hand" Tag="#FFEB3B" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_FFC107" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#FFC107" Cursor="Hand" Tag="#FFC107" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_FF9800" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#FF9800" Cursor="Hand" Tag="#FF9800" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_E53935" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#E53935" Cursor="Hand" Tag="#E53935" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_5E35B1" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#5E35B1" Cursor="Hand" Tag="#5E35B1" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_8E24AA" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#8E24AA" Cursor="Hand" Tag="#8E24AA" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_D81B60" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#D81B60" Cursor="Hand" Tag="#D81B60" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_C2185B" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#C2185B" Cursor="Hand" Tag="#C2185B" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- Row 2 -->
+                        <UniformGrid Rows="1" Columns="8" Margin="0,0,0,12">
+                            <Border x:Name="ColorBorder_00B0FF" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#00B0FF" Cursor="Hand" Tag="#00B0FF" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_0078D4" Width="26" Height="26" CornerRadius="13" BorderBrush="#FFFFFF" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#0078D4" Cursor="Hand" Tag="#0078D4" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_1565C0" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#1565C0" Cursor="Hand" Tag="#1565C0" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_7CB342" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#7CB342" Cursor="Hand" Tag="#7CB342" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_2E7D32" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#2E7D32" Cursor="Hand" Tag="#2E7D32" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_FFFFFF" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#FFFFFF" Cursor="Hand" Tag="#FFFFFF" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_9E9E9E" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#9E9E9E" Cursor="Hand" Tag="#9E9E9E" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                            <Border x:Name="ColorBorder_212121" Width="26" Height="26" CornerRadius="13" BorderBrush="Transparent" BorderThickness="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Border Width="18" Height="18" CornerRadius="9" Background="#212121" BorderBrush="#55FFFFFF" BorderThickness="1" Cursor="Hand" Tag="#212121" MouseDown="ColorSwatch_MouseDown"/>
+                            </Border>
+                        </UniformGrid>
+
+                        <!-- Divider -->
+                        <Border Height="1" Background="#33FFFFFF" Margin="0,0,0,10"/>
+
+                        <!-- Shape selector row -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <!-- Freehand (Squiggle) -->
+                            <Border x:Name="ShapeFreehandBtn" Width="36" Height="32" CornerRadius="6" Background="#33FFFFFF" Cursor="Hand" Margin="0,0,6,0" MouseDown="ShapeBtn_Click" Tag="Freehand" ToolTip="Freehand">
+                                <Path Data="M 10,22 C 14,24 16,18 20,20 C 24,22 26,14 18,12 C 12,10 24,8 26,10"
+                                      Stroke="{DynamicResource TextFillColorPrimaryBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <!-- Straight Line -->
+                            <Border x:Name="ShapeLineBtn" Width="36" Height="32" CornerRadius="6" Background="Transparent" Cursor="Hand" Margin="0,0,6,0" MouseDown="ShapeBtn_Click" Tag="Line" ToolTip="Straight Line">
+                                <Line X1="8" Y1="24" X2="24" Y2="8" Stroke="{DynamicResource TextFillColorPrimaryBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <!-- Single Arrow -->
+                            <Border x:Name="ShapeArrowBtn" Width="36" Height="32" CornerRadius="6" Background="Transparent" Cursor="Hand" Margin="0,0,6,0" MouseDown="ShapeBtn_Click" Tag="Arrow" ToolTip="Arrow">
+                                <Path Data="M 8,24 L 24,8 M 14,8 L 24,8 L 24,18"
+                                      Stroke="{DynamicResource TextFillColorPrimaryBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+
+                            <!-- Double Arrow -->
+                            <Border x:Name="ShapeDoubleArrowBtn" Width="36" Height="32" CornerRadius="6" Background="Transparent" Cursor="Hand" Margin="0,0,6,0" MouseDown="ShapeBtn_Click" Tag="DoubleArrow" ToolTip="Double Arrow">
+                                <Path Data="M 8,24 L 24,8 M 14,8 L 24,8 L 24,18 M 18,24 L 8,24 L 8,14"
+                                      Stroke="{DynamicResource TextFillColorPrimaryBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Center Image Viewport with Mouse Wheel Zoom & Pan support -->
+            <Border Grid.Column="1" Background="#141414" Margin="12,12,16,12" CornerRadius="10" ClipToBounds="True">
+            <Grid x:Name="ViewportGrid"
+                  Background="Transparent"
+                  ClipToBounds="True"
+                  PreviewMouseWheel="Viewport_PreviewMouseWheel"
+                  MouseDown="Viewport_MouseDown"
+                  MouseMove="Viewport_MouseMove"
+                  MouseUp="Viewport_MouseUp"
+                  MouseLeave="Viewport_MouseLeave"
+                  SizeChanged="ViewportGrid_SizeChanged">
+
+                <!-- Placeholder when no image -->
+                <StackPanel x:Name="PlaceholderPanel" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <ui:SymbolIcon Symbol="ImageAdd24" FontSize="48" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,0,0,12"/>
+                    <TextBlock Text="No image loaded" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                    <TextBlock Text="Click 'Open Image' or drag and drop an image here" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                    <ui:Button Content="Choose Image..." Icon="{ui:SymbolIcon FolderOpen24}" Click="Open_Click" Appearance="Primary" HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Canvas-based unconstrained viewport (prevents WPF Grid layout clipping!) -->
+                <Canvas x:Name="ViewportCanvas" ClipToBounds="True">
+                    <!-- Scalable & Pannable Image + Crop Container -->
+                    <Canvas x:Name="ImageContainer"
+                            Visibility="Collapsed"
+                            RenderTransformOrigin="0,0">
+
+                        <Canvas.RenderTransform>
+                            <MatrixTransform x:Name="ImageMatrixTransform"/>
+                        </Canvas.RenderTransform>
+
+                        <!-- Loaded Image -->
+                        <Image x:Name="DisplayImage"
+                               Stretch="Fill"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                        <!-- Interactive InkCanvas for Pen & Annotation -->
+                        <InkCanvas x:Name="MainInkCanvas"
+                                   Background="Transparent"
+                                   IsHitTestVisible="False"
+                                   RenderTransformOrigin="0,0"
+                                   PreviewMouseDown="MainInkCanvas_PreviewMouseDown"
+                                   PreviewMouseMove="MainInkCanvas_PreviewMouseMove"
+                                   PreviewMouseUp="MainInkCanvas_PreviewMouseUp"/>
+
+                        <!-- Shape Preview Canvas (temporary live line/arrow preview) -->
+                        <Canvas x:Name="ShapePreviewCanvas"
+                                IsHitTestVisible="False"/>
+
+                        <!-- Interactive Crop Canvas (Strictly bounded to image pixels) -->
+                        <Canvas x:Name="CropCanvas"
+                                Visibility="Collapsed"
+                                Background="Transparent"
+                                ClipToBounds="False"
+                                MouseDown="CropCanvas_MouseDown"
+                                MouseMove="CropCanvas_MouseMove"
+                                MouseUp="CropCanvas_MouseUp"
+                                LostMouseCapture="CropCanvas_LostMouseCapture">
+
+                            <!-- 4 dark masks outside selection -->
+                            <Rectangle x:Name="MaskTop" Fill="#99000000" IsHitTestVisible="False"/>
+                            <Rectangle x:Name="MaskBottom" Fill="#99000000" IsHitTestVisible="False"/>
+                            <Rectangle x:Name="MaskLeft" Fill="#99000000" IsHitTestVisible="False"/>
+                            <Rectangle x:Name="MaskRight" Fill="#99000000" IsHitTestVisible="False"/>
+
+                            <!-- Selection border with 3x3 rule of thirds grid -->
+                            <Border x:Name="CropBoxBorder"
+                                    BorderBrush="#0078D4"
+                                    BorderThickness="2"
+                                    Background="#01FFFFFF"
+                                    IsHitTestVisible="False">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="GridLineH" Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#80FFFFFF" BorderThickness="0,1,0,1"/>
+                                    <Border x:Name="GridLineV" Grid.Column="1" Grid.RowSpan="3" BorderBrush="#80FFFFFF" BorderThickness="1,0,1,0"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- 4 Corner Handles (Sudut) -->
+                            <Border x:Name="HandleTL" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNWSE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                            <Border x:Name="HandleTR" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNESW" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                            <Border x:Name="HandleBR" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNWSE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                            <Border x:Name="HandleBL" Width="14" Height="14" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="3" Cursor="SizeNESW" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+
+                            <!-- 4 Side Edge Handles (Sisi: Atas, Bawah, Kiri, Kanan) -->
+                            <Border x:Name="HandleT" Width="28" Height="10" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeNS" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                            <Border x:Name="HandleB" Width="28" Height="10" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeNS" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                            <Border x:Name="HandleL" Width="10" Height="28" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeWE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                            <Border x:Name="HandleR" Width="10" Height="28" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeWE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
+                        </Canvas>
+                    </Canvas>
+                </Canvas>
+            </Grid>
+        </Border>
+    </Grid>
+
+        <!-- Docked Bottom Crop Action Bar (TIDAK MENGAMBANG) -->
+        <Border x:Name="CropBottomBar" Grid.Row="3" Visibility="Collapsed"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0" Padding="16,10">
+            <Grid>
+                <!-- Left: Realtime pixel crop dimensions & status -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:SymbolIcon Symbol="Crop24" FontSize="18" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,8,0"/>
+                    <TextBlock Text="Crop Size:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="CropDimensionsText" Text="0 × 0 px" FontWeight="Bold" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock x:Name="CropStatusText" Text="" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
+                </StackPanel>
+
+                <!-- Right: Action Confirmation -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <ui:Button Content="Apply" Icon="{ui:SymbolIcon Checkmark24}" Appearance="Primary" Click="ApplyCrop_Click" Margin="0,0,8,0"/>
+                    <ui:Button Content="Cancel" Icon="{ui:SymbolIcon Dismiss24}" Click="CancelCrop_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
