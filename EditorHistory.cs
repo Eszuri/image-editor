@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Windows.Controls;
 using System.Windows.Ink;
 using System.Windows.Media.Imaging;
@@ -10,31 +8,29 @@ namespace ImageEditor
     {
         void Undo();
         void Redo();
-        string Description { get; }
     }
 
     public class AddStrokeAction : IEditorAction
     {
-        public Stroke Stroke { get; }
+        private readonly Stroke _stroke;
         private readonly InkCanvas _inkCanvas;
-        public string Description => "Add Pen Stroke";
 
         public AddStrokeAction(Stroke stroke, InkCanvas inkCanvas)
         {
-            Stroke = stroke ?? throw new ArgumentNullException(nameof(stroke));
+            _stroke = stroke ?? throw new ArgumentNullException(nameof(stroke));
             _inkCanvas = inkCanvas ?? throw new ArgumentNullException(nameof(inkCanvas));
         }
 
         public void Undo()
         {
-            _inkCanvas.Strokes.Remove(Stroke);
+            _inkCanvas.Strokes.Remove(_stroke);
         }
 
         public void Redo()
         {
-            if (!_inkCanvas.Strokes.Contains(Stroke))
+            if (!_inkCanvas.Strokes.Contains(_stroke))
             {
-                _inkCanvas.Strokes.Add(Stroke);
+                _inkCanvas.Strokes.Add(_stroke);
             }
         }
     }
@@ -42,30 +38,28 @@ namespace ImageEditor
     public class ImageTransformAction : IEditorAction
     {
         private readonly MainWindow _window;
-        public BitmapSource OldImage { get; }
-        public Stroke[] OldStrokes { get; }
-        public BitmapSource NewImage { get; }
-        public Stroke[] NewStrokes { get; }
-        public string Description { get; }
+        private readonly BitmapSource _oldImage;
+        private readonly Stroke[] _oldStrokes;
+        private readonly BitmapSource _newImage;
+        private readonly Stroke[] _newStrokes;
 
-        public ImageTransformAction(MainWindow window, BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource newImage, Stroke[] newStrokes, string description)
+        public ImageTransformAction(MainWindow window, BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource newImage, Stroke[] newStrokes)
         {
             _window = window ?? throw new ArgumentNullException(nameof(window));
-            OldImage = oldImage;
-            OldStrokes = oldStrokes ?? Array.Empty<Stroke>();
-            NewImage = newImage;
-            NewStrokes = newStrokes ?? Array.Empty<Stroke>();
-            Description = description;
+            _oldImage = oldImage;
+            _oldStrokes = oldStrokes ?? Array.Empty<Stroke>();
+            _newImage = newImage;
+            _newStrokes = newStrokes ?? Array.Empty<Stroke>();
         }
 
         public void Undo()
         {
-            _window.SetImageAndStrokes(OldImage, OldStrokes);
+            _window.SetImageAndStrokes(_oldImage, _oldStrokes);
         }
 
         public void Redo()
         {
-            _window.SetImageAndStrokes(NewImage, NewStrokes);
+            _window.SetImageAndStrokes(_newImage, _newStrokes);
         }
     }
 
@@ -77,9 +71,6 @@ namespace ImageEditor
 
         public bool CanUndo => _undoStack.Count > 0;
         public bool CanRedo => _redoStack.Count > 0;
-
-        public int UndoCount => _undoStack.Count;
-        public int RedoCount => _redoStack.Count;
 
         public event EventHandler? HistoryChanged;
 

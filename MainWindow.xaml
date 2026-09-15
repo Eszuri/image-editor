@@ -351,7 +351,7 @@
                 </StackPanel>
 
                 <!-- Canvas-based unconstrained viewport (prevents WPF Grid layout clipping!) -->
-                <Canvas x:Name="ViewportCanvas" ClipToBounds="True">
+                <Canvas ClipToBounds="True">
                     <!-- Scalable & Pannable Image + Crop Container -->
                     <Canvas x:Name="ImageContainer"
                             Visibility="Collapsed"

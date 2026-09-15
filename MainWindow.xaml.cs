@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,29 +18,29 @@ namespace ImageEditor
         private string? _currentPath;
 
         // Panning state
-        private bool _isPanning = false;
+        private bool _isPanning;
         private Point _panStart;
-        private bool _isManualZoom = false;
+        private bool _isManualZoom;
 
         // Crop state
-        private bool _isCropping = false;
+        private bool _isCropping;
         private Rect _cropRect = Rect.Empty;
         private Rect _cropRectStart = Rect.Empty;
         private Point _dragStart;
         private DragMode _dragMode = DragMode.None;
-        private Rect? _savedUnappliedCropRect = null;
+        private Rect? _savedUnappliedCropRect;
 
         // Pen & Annotation state
-        private bool _isPenActive = false;
+        private bool _isPenActive;
         private StrokeShape _strokeShape = StrokeShape.Freehand;
         private Color _currentColor = (Color)ColorConverter.ConvertFromString("#0078D4");
         private double _currentThickness = 3.0;
-        private bool _isDrawingShape = false;
+        private bool _isDrawingShape;
         private Point _shapeStartPoint;
 
         // App Config & Sidebar State
         private AppConfig _appConfig = new();
-        private bool _isSidebarCollapsed = false;
+        private bool _isSidebarCollapsed;
 
         // Global History Manager
         private readonly HistoryManager _historyManager = new();
@@ -71,21 +70,6 @@ namespace ImageEditor
 
         private double CurrentScale => ImageMatrixTransform.Matrix.M11 > 0.0001 ? ImageMatrixTransform.Matrix.M11 : 1.0;
 
-        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
-        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr LoadImage(IntPtr hInst, IntPtr name, uint type, int cx, int cy, uint fuLoad);
-
-        [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
-        private static extern IntPtr GetModuleHandle(string? lpModuleName);
-
-        private const uint WM_SETICON = 0x0080;
-        private const uint IMAGE_ICON = 1;
-        private const uint LR_DEFAULTCOLOR = 0x0000;
-        private const int ICON_SMALL = 0;
-        private const int ICON_BIG = 1;
-
         public MainWindow()
         {
             InitializeComponent();
@@ -110,27 +94,6 @@ namespace ImageEditor
             MainInkCanvas.StrokeCollected += MainInkCanvas_StrokeCollected;
             _historyManager.HistoryChanged += (s, ev) => UpdateHistoryButtonStates();
             Closing += MainWindow_Closing;
-        }
-
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-            try
-            {
-                var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-                IntPtr hMod = GetModuleHandle(null);
-                IntPtr hBig = LoadImage(hMod, (IntPtr)32512, IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR);
-                if (hBig != IntPtr.Zero)
-                {
-                    SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_BIG, hBig);
-                }
-                IntPtr hSmall = LoadImage(hMod, (IntPtr)32512, IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR);
-                if (hSmall != IntPtr.Zero)
-                {
-                    SendMessage(hwnd, WM_SETICON, (IntPtr)ICON_SMALL, hSmall);
-                }
-            }
-            catch { }
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -365,10 +328,10 @@ namespace ImageEditor
             FitImageToViewport();
         }
 
-        private void ApplyImageTransform(BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource newImage, Stroke[] newStrokes, string description)
+        private void ApplyImageTransform(BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource newImage, Stroke[] newStrokes)
         {
             SetImageAndStrokes(newImage, newStrokes);
-            _historyManager.Record(new ImageTransformAction(this, oldImage, oldStrokes, newImage, newStrokes, description));
+            _historyManager.Record(new ImageTransformAction(this, oldImage, oldStrokes, newImage, newStrokes));
         }
 
         private void Rotate_Click(object sender, RoutedEventArgs e)
@@ -384,7 +347,7 @@ namespace ImageEditor
             var newImage = new TransformedBitmap(baseSource, new RotateTransform(90));
             if (newImage.CanFreeze) newImage.Freeze();
 
-            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>(), "Rotate 90°");
+            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
         }
 
         private void Flip_Click(object sender, RoutedEventArgs e)
@@ -400,7 +363,7 @@ namespace ImageEditor
             var newImage = new TransformedBitmap(baseSource, new ScaleTransform(-1, 1, baseSource.PixelWidth / 2.0, 0));
             if (newImage.CanFreeze) newImage.Freeze();
 
-            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>(), "Flip Horizontal");
+            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
         }
 
         #region Zoom & Pan Logic (MatrixTransform)
@@ -441,7 +404,7 @@ namespace ImageEditor
             if (_isCropping) UpdateCropVisuals();
         }
 
-        private void ResetZoom_Click(object sender, RoutedEventArgs e)
+        private void ResetZoom()
         {
             if (_currentImage == null) return;
 
@@ -964,7 +927,7 @@ namespace ImageEditor
 
             ExitCropMode();
             _savedUnappliedCropRect = null;
-            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>(), "Crop");
+            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
         }
 
         private void CancelCrop_Click(object sender, RoutedEventArgs e)
@@ -1074,7 +1037,7 @@ namespace ImageEditor
                     }
                     else if (e.Key == Key.D1 || e.Key == Key.NumPad1)
                     {
-                        ResetZoom_Click(sender, e);
+                        ResetZoom();
                         e.Handled = true;
                     }
                 }
