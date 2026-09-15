@@ -134,6 +134,7 @@ namespace ImageEditor
             _appConfig.LastBatchOutputOption = BatchDestSubfolderRadio?.IsChecked == true ? "Subfolder" : (BatchDestCustomRadio?.IsChecked == true ? "Custom" : "Overwrite");
             _appConfig.LastBatchCustomFolder = BatchCustomFolderInput?.Text ?? "";
             _appConfig.Save();
+            _batchCts?.Dispose();
         }
 
         private void InitConfig()
