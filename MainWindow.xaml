@@ -527,16 +527,13 @@
                                    Background="Transparent"
                                    IsHitTestVisible="False"
                                    RenderTransformOrigin="0,0"
-                                   RenderOptions.EdgeMode="Unspecified"
                                    PreviewMouseDown="MainInkCanvas_PreviewMouseDown"
                                    PreviewMouseMove="MainInkCanvas_PreviewMouseMove"
-                                   PreviewMouseUp="MainInkCanvas_PreviewMouseUp"
-                                   LostMouseCapture="MainInkCanvas_LostMouseCapture"/>
+                                   PreviewMouseUp="MainInkCanvas_PreviewMouseUp"/>
 
                         <!-- Shape Preview Canvas (temporary live line/arrow preview) -->
                         <Canvas x:Name="ShapePreviewCanvas"
-                                IsHitTestVisible="False"
-                                RenderOptions.EdgeMode="Unspecified"/>
+                                IsHitTestVisible="False"/>
 
                         <!-- Interactive Crop Canvas (Strictly bounded to image pixels) -->
                         <Canvas x:Name="CropCanvas"

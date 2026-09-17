@@ -37,9 +37,8 @@ namespace ImageEditor
         private StrokeShape _strokeShape = StrokeShape.Freehand;
         private Color _currentColor = (Color)ColorConverter.ConvertFromString("#0078D4");
         private double _currentThickness = 3.0;
-        private bool _isDrawingStroke;
+        private bool _isDrawingShape;
         private Point _shapeStartPoint;
-        private readonly List<Point> _freehandPoints = new();
 
         // App Config & Sidebar State
         private AppConfig _appConfig = new();
@@ -135,7 +134,7 @@ namespace ImageEditor
                 Color = _currentColor,
                 Width = _currentThickness,
                 Height = _currentThickness,
-                FitToCurve = false,
+                FitToCurve = true,
                 StylusTip = StylusTip.Ellipse,
                 IgnorePressure = true
             };
@@ -1497,7 +1496,14 @@ namespace ImageEditor
             MainInkCanvas.DefaultDrawingAttributes.IgnorePressure = true;
             UpdatePenCanvasThickness();
 
-            MainInkCanvas.EditingMode = InkCanvasEditingMode.None;
+            if (_strokeShape == StrokeShape.Freehand)
+            {
+                MainInkCanvas.EditingMode = InkCanvasEditingMode.Ink;
+            }
+            else
+            {
+                MainInkCanvas.EditingMode = InkCanvasEditingMode.None;
+            }
         }
 
         private void ThicknessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -1592,9 +1598,7 @@ namespace ImageEditor
             if (isMiddleOrRight || isSpacePan)
             {
                 HidePenCursor();
-                _isDrawingStroke = false;
-                _freehandPoints.Clear();
-                ShapePreviewCanvas.Children.Clear();
+                _isDrawingShape = false;
                 _isPanning = true;
                 _panStart = e.GetPosition(ViewportGrid);
                 ViewportGrid.CaptureMouse();
@@ -1603,23 +1607,11 @@ namespace ImageEditor
                 return;
             }
 
-            if (_isPenActive && _currentImage != null && e.LeftButton == MouseButtonState.Pressed)
+            if (_isPenActive && _strokeShape != StrokeShape.Freehand && e.LeftButton == MouseButtonState.Pressed)
             {
-                Point pos = e.GetPosition(MainInkCanvas);
-                _isDrawingStroke = true;
+                _isDrawingShape = true;
+                _shapeStartPoint = e.GetPosition(MainInkCanvas);
                 MainInkCanvas.CaptureMouse();
-
-                if (_strokeShape == StrokeShape.Freehand)
-                {
-                    _freehandPoints.Clear();
-                    _freehandPoints.Add(pos);
-                    RenderFreehandPreview();
-                }
-                else
-                {
-                    _shapeStartPoint = pos;
-                    ShapePreviewCanvas.Children.Clear();
-                }
                 e.Handled = true;
             }
         }
@@ -1631,223 +1623,32 @@ namespace ImageEditor
                 UpdatePenCursor(e.GetPosition(ViewportGrid));
             }
 
-            if (_isDrawingStroke && e.LeftButton == MouseButtonState.Pressed)
+            if (_isDrawingShape && e.LeftButton == MouseButtonState.Pressed)
             {
                 Point current = e.GetPosition(MainInkCanvas);
-                if (_strokeShape == StrokeShape.Freehand)
-                {
-                    double minDistance = Math.Max(0.5, 1.0 / GetCurrentZoomScale());
-                    if (_freehandPoints.Count == 0 || Distance(_freehandPoints[^1], current) >= minDistance)
-                    {
-                        _freehandPoints.Add(current);
-                        RenderFreehandPreview();
-                    }
-                }
-                else
-                {
-                    RenderShapePreview(_shapeStartPoint, current);
-                }
+                RenderShapePreview(_shapeStartPoint, current);
                 e.Handled = true;
             }
         }
 
         private void MainInkCanvas_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (_isDrawingStroke)
+            if (_isDrawingShape)
             {
-                _isDrawingStroke = false;
+                _isDrawingShape = false;
                 MainInkCanvas.ReleaseMouseCapture();
                 ShapePreviewCanvas.Children.Clear();
+                Point endPoint = e.GetPosition(MainInkCanvas);
 
-                double thickness = GetEffectiveCanvasThickness();
-
-                if (_strokeShape == StrokeShape.Freehand)
+                if (Distance(_shapeStartPoint, endPoint) >= 2)
                 {
-                    if (_freehandPoints.Count > 0)
-                    {
-                        var stroke = CreateFreehandStroke(_freehandPoints, _currentColor, thickness);
-                        if (stroke.StylusPoints.Count > 0)
-                        {
-                            MainInkCanvas.Strokes.Add(stroke);
-                            _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
-                        }
-                        _freehandPoints.Clear();
-                    }
-                }
-                else
-                {
-                    Point endPoint = e.GetPosition(MainInkCanvas);
-                    if (Distance(_shapeStartPoint, endPoint) >= 2)
-                    {
-                        var stroke = CreateShapeStroke(_shapeStartPoint, endPoint, _strokeShape, _currentColor, thickness);
-                        MainInkCanvas.Strokes.Add(stroke);
-                        _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
-                    }
+                    double thickness = GetEffectiveCanvasThickness();
+                    var stroke = CreateShapeStroke(_shapeStartPoint, endPoint, _strokeShape, _currentColor, thickness);
+                    MainInkCanvas.Strokes.Add(stroke);
+                    _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
                 }
                 e.Handled = true;
             }
-        }
-
-        private void MainInkCanvas_LostMouseCapture(object sender, MouseEventArgs e)
-        {
-            if (_isDrawingStroke)
-            {
-                _isDrawingStroke = false;
-                _freehandPoints.Clear();
-                ShapePreviewCanvas.Children.Clear();
-            }
-        }
-
-        private void RenderFreehandPreview()
-        {
-            ShapePreviewCanvas.Children.Clear();
-            if (_freehandPoints.Count == 0) return;
-
-            double thickness = GetEffectiveCanvasThickness();
-
-            if (_freehandPoints.Count == 1)
-            {
-                var dot = new System.Windows.Shapes.Ellipse
-                {
-                    Width = thickness,
-                    Height = thickness,
-                    Fill = new SolidColorBrush(_currentColor)
-                };
-                Canvas.SetLeft(dot, _freehandPoints[0].X - thickness / 2.0);
-                Canvas.SetTop(dot, _freehandPoints[0].Y - thickness / 2.0);
-                ShapePreviewCanvas.Children.Add(dot);
-                return;
-            }
-
-            var geom = BuildFreehandPathGeometry(_freehandPoints);
-            var path = new System.Windows.Shapes.Path
-            {
-                Data = geom,
-                Stroke = new SolidColorBrush(_currentColor),
-                StrokeThickness = thickness,
-                StrokeStartLineCap = PenLineCap.Round,
-                StrokeEndLineCap = PenLineCap.Round,
-                StrokeLineJoin = PenLineJoin.Round
-            };
-            ShapePreviewCanvas.Children.Add(path);
-        }
-
-        private static PathGeometry BuildFreehandPathGeometry(IReadOnlyList<Point> points)
-        {
-            var geom = new PathGeometry();
-            if (points == null || points.Count == 0) return geom;
-
-            var figure = new PathFigure
-            {
-                StartPoint = points[0],
-                IsClosed = false,
-                IsFilled = false
-            };
-
-            if (points.Count == 1)
-            {
-                figure.Segments.Add(new LineSegment(points[0], true));
-            }
-            else if (points.Count == 2)
-            {
-                figure.Segments.Add(new LineSegment(points[1], true));
-            }
-            else
-            {
-                Point p0 = points[0];
-                Point p1 = points[1];
-                Point mid0 = new Point((p0.X + p1.X) / 2.0, (p0.Y + p1.Y) / 2.0);
-
-                figure.Segments.Add(new LineSegment(mid0, true));
-
-                for (int i = 1; i < points.Count - 1; i++)
-                {
-                    Point current = points[i];
-                    Point next = points[i + 1];
-                    Point nextMid = new Point((current.X + next.X) / 2.0, (current.Y + next.Y) / 2.0);
-
-                    figure.Segments.Add(new QuadraticBezierSegment(current, nextMid, true));
-                }
-
-                figure.Segments.Add(new LineSegment(points[^1], true));
-            }
-
-            geom.Figures.Add(figure);
-            return geom;
-        }
-
-        private Stroke CreateFreehandStroke(IReadOnlyList<Point> points, Color color, double thickness)
-        {
-            var pts = new StylusPointCollection();
-            var attr = new DrawingAttributes
-            {
-                Color = color,
-                Width = thickness,
-                Height = thickness,
-                FitToCurve = false,
-                StylusTip = StylusTip.Ellipse,
-                IgnorePressure = true
-            };
-
-            if (points == null || points.Count == 0)
-            {
-                return new Stroke(pts, attr);
-            }
-
-            if (points.Count == 1)
-            {
-                Point p0 = points[0];
-                pts.Add(new StylusPoint(p0.X, p0.Y));
-                pts.Add(new StylusPoint(p0.X + 0.1, p0.Y + 0.1));
-                return new Stroke(pts, attr);
-            }
-
-            var geom = BuildFreehandPathGeometry(points);
-            double scale = GetCurrentZoomScale();
-            double tolerance = Math.Clamp(0.25 / scale, 0.05, 0.5);
-            var flattened = geom.GetFlattenedPathGeometry(tolerance, ToleranceType.Absolute);
-
-            foreach (var figure in flattened.Figures)
-            {
-                AddStylusPointIfDistinct(pts, figure.StartPoint);
-                foreach (var segment in figure.Segments)
-                {
-                    if (segment is LineSegment line)
-                    {
-                        AddStylusPointIfDistinct(pts, line.Point);
-                    }
-                    else if (segment is PolyLineSegment polyLine)
-                    {
-                        foreach (var pt in polyLine.Points)
-                        {
-                            AddStylusPointIfDistinct(pts, pt);
-                        }
-                    }
-                }
-            }
-
-            if (pts.Count == 0)
-            {
-                foreach (var p in points)
-                {
-                    pts.Add(new StylusPoint(p.X, p.Y));
-                }
-            }
-
-            return new Stroke(pts, attr);
-        }
-
-        private static void AddStylusPointIfDistinct(StylusPointCollection pts, Point pt)
-        {
-            if (pts.Count > 0)
-            {
-                var last = pts[^1];
-                if (Math.Abs(last.X - pt.X) < 0.001 && Math.Abs(last.Y - pt.Y) < 0.001)
-                {
-                    return;
-                }
-            }
-            pts.Add(new StylusPoint(pt.X, pt.Y));
         }
 
         private void RenderShapePreview(Point start, Point end)
