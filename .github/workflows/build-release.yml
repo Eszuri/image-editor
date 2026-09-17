@@ -25,7 +25,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: "10.0.x"
 
       - name: Determine Version
         id: version
@@ -33,7 +33,7 @@ jobs:
           $ver = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.TrimStart('v') } else { "0.0.0-dev.$env:GITHUB_RUN_NUMBER" }
           "version=$ver" >> $env:GITHUB_OUTPUT
 
-      - name: Publish
+      - name: Publish Self-Contained
         run: >
           dotnet publish ImageEditor.csproj -c Release -r win-x64
           --self-contained true
@@ -42,16 +42,32 @@ jobs:
           -p:PublishTrimmed=false
           -p:Version=${{ steps.version.outputs.version }}
 
+      - name: Publish Framework-Dependent
+        run: >
+          dotnet publish ImageEditor.csproj -c Release -r win-x64
+          --self-contained false
+          -p:PublishSingleFile=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -o publish-fd
+
       - name: Create Portable Zip
-        run: Compress-Archive -Path "bin\Release\net8.0-windows\win-x64\publish\*" -DestinationPath "ImageEditor-portable-${{ steps.version.outputs.version }}.zip"
+        run: >
+          Compress-Archive
+          -Path "bin\Release\net10.0-windows\win-x64\publish\*"
+          -DestinationPath "ImageEditor-portable-${{ steps.version.outputs.version }}.zip"
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
-      - name: Build Installer
+      - name: Build Installer (Self-Contained)
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.version }} setup.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.version }} /DMyOutputFilename=ImageEditorSetup setup.iss
           Move-Item "Output\ImageEditorSetup.exe" "ImageEditor-Setup-${{ steps.version.outputs.version }}.exe"
+
+      - name: Build Installer (lightweight)
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.version }} /DMySourceDir=publish-fd /DMyOutputFilename=ImageEditorSetuplightweight setup.iss
+          Move-Item "Output\ImageEditorSetuplightweight.exe" "ImageEditor-Setup-lightweight-${{ steps.version.outputs.version }}.exe"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -60,6 +76,7 @@ jobs:
           path: |
             ImageEditor-portable-${{ steps.version.outputs.version }}.zip
             ImageEditor-Setup-${{ steps.version.outputs.version }}.exe
+            ImageEditor-Setup-lightweight-${{ steps.version.outputs.version }}.exe
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -67,6 +84,16 @@ jobs:
         with:
           name: Image Editor ${{ steps.version.outputs.version }}
           generate_release_notes: true
+          body: |
+            ## Downloads
+
+            | File | Description |
+            |------|-------------|
+            | `ImageEditor-Setup-*.exe` | **Installer** — includes .NET runtime, no additional setup needed |
+            | `ImageEditor-portable-*.zip` | **Portable** — includes .NET runtime, extract and run |
+            | `ImageEditor-Setup-lightweight-*.exe` | **Installer (lightweight)** — small size, requires [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed |
+
           files: |
             ImageEditor-portable-${{ steps.version.outputs.version }}.zip
             ImageEditor-Setup-${{ steps.version.outputs.version }}.exe
+            ImageEditor-Setup-lightweight-${{ steps.version.outputs.version }}.exe

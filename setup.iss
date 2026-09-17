@@ -5,6 +5,12 @@
 #ifndef MyAppVersion
   #define MyAppVersion "1.0.0"
 #endif
+#ifndef MySourceDir
+  #define MySourceDir "bin\Release\net10.0-windows\win-x64\publish"
+#endif
+#ifndef MyOutputFilename
+  #define MyOutputFilename "ImageEditorSetup"
+#endif
 #define MyAppPublisher "Eszuri"
 #define MyAppURL "https://github.com/Eszuri/image-editor"
 #define MyAppExeName "ImageEditor.exe"
@@ -30,7 +36,7 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog commandline
 
 OutputDir=Output
-OutputBaseFilename=ImageEditorSetup
+OutputBaseFilename={#MyOutputFilename}
 SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
@@ -56,7 +62,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "contextmenu"; Description: "Add ""{#MyContextMenuText}"" to Windows Explorer context menu"; GroupDescription: "Explorer integration:"
 
 [Files]
-Source: "bin\Release\net8.0-windows\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb"
+Source: "{#MySourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb"
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
