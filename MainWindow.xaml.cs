@@ -158,6 +158,21 @@ namespace ImageEditor
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            if (HasEditingProgress())
+            {
+                var result = System.Windows.MessageBox.Show(
+                    "You have unsaved edits. Are you sure you want to close?",
+                    "Unsaved Changes",
+                    System.Windows.MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == System.Windows.MessageBoxResult.No)
+                {
+                    e.Cancel = true;
+                    return;
+                }
+            }
+
             _appConfig.IsSidebarCollapsed = _isSidebarCollapsed;
             _appConfig.PenColorHex = $"#{_currentColor.R:X2}{_currentColor.G:X2}{_currentColor.B:X2}";
             _appConfig.PenThickness = _currentThickness;
