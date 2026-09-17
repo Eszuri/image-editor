@@ -527,13 +527,16 @@
                                    Background="Transparent"
                                    IsHitTestVisible="False"
                                    RenderTransformOrigin="0,0"
+                                   RenderOptions.EdgeMode="Unspecified"
                                    PreviewMouseDown="MainInkCanvas_PreviewMouseDown"
                                    PreviewMouseMove="MainInkCanvas_PreviewMouseMove"
-                                   PreviewMouseUp="MainInkCanvas_PreviewMouseUp"/>
+                                   PreviewMouseUp="MainInkCanvas_PreviewMouseUp"
+                                   LostMouseCapture="MainInkCanvas_LostMouseCapture"/>
 
                         <!-- Shape Preview Canvas (temporary live line/arrow preview) -->
                         <Canvas x:Name="ShapePreviewCanvas"
-                                IsHitTestVisible="False"/>
+                                IsHitTestVisible="False"
+                                RenderOptions.EdgeMode="Unspecified"/>
 
                         <!-- Interactive Crop Canvas (Strictly bounded to image pixels) -->
                         <Canvas x:Name="CropCanvas"
@@ -585,6 +588,16 @@
                             <Border x:Name="HandleL" Width="10" Height="28" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeWE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                             <Border x:Name="HandleR" Width="10" Height="28" Background="#0078D4" BorderBrush="#FFFFFF" BorderThickness="2" CornerRadius="4" Cursor="SizeWE" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False"/>
                         </Canvas>
+                    </Canvas>
+
+                    <!-- Live Pen Cursor Preview Indicator (follows mouse over canvas in Pen mode) -->
+                    <Canvas x:Name="PenCursorCanvas" IsHitTestVisible="False">
+                        <Grid x:Name="PenCursorPreview" Visibility="Collapsed" IsHitTestVisible="False" Width="3" Height="3">
+                            <Ellipse Stroke="#66000000" StrokeThickness="2" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            <Ellipse Stroke="#FFFFFFFF" StrokeThickness="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            <Ellipse x:Name="PenCursorPreviewFill" Fill="#550078D4" Margin="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            <Rectangle Width="2" Height="2" Fill="#FFFFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
                     </Canvas>
                 </Canvas>
             </Grid>
@@ -1031,6 +1044,53 @@
                         </Grid>
                     </StackPanel>
                 </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Replace / Open Image Confirmation Modal Overlay -->
+        <Grid x:Name="ReplaceConfirmModal" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" Background="#B2000000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="460" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                    CornerRadius="10" Padding="24,20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.6" Direction="270"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Warning24" FontSize="20" Foreground="#FFA726" Margin="0,0,10,0"/>
+                            <TextBlock Text="Unsaved Changes" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseReplaceConfirmModal_Click" Padding="6" ToolTip="Cancel (Esc)"/>
+                    </Grid>
+
+                    <!-- Explanatory message -->
+                    <TextBlock x:Name="ReplaceConfirmMessageText"
+                               Text="You have unsaved edits on the current image. Opening a new image will discard your progress."
+                               FontSize="13" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                    <!-- Compact File Pill -->
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <ui:SymbolIcon Symbol="Document20" FontSize="16" Foreground="{DynamicResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock x:Name="ReplaceConfirmNewFileNameText" Grid.Column="1" Text="image.png" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Action Buttons Footer -->
+                    <Grid>
+                        <ui:Button Content="Cancel" Appearance="Secondary" HorizontalAlignment="Left" Click="CloseReplaceConfirmModal_Click" Padding="14,6"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:Button Content="Open in New Window" Icon="{ui:SymbolIcon WindowNew24}" Appearance="Secondary" Click="ReplaceConfirmNewWindow_Click" Margin="0,0,8,0" Padding="12,6"/>
+                            <ui:Button Content="Replace" Icon="{ui:SymbolIcon ArrowSwap24}" Appearance="Danger" Click="ReplaceConfirmReplace_Click" Padding="14,6"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

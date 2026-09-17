@@ -37,8 +37,9 @@ namespace ImageEditor
         private StrokeShape _strokeShape = StrokeShape.Freehand;
         private Color _currentColor = (Color)ColorConverter.ConvertFromString("#0078D4");
         private double _currentThickness = 3.0;
-        private bool _isDrawingShape;
+        private bool _isDrawingStroke;
         private Point _shapeStartPoint;
+        private readonly List<Point> _freehandPoints = new();
 
         // App Config & Sidebar State
         private AppConfig _appConfig = new();
@@ -56,6 +57,7 @@ namespace ImageEditor
         private byte[]? _lastCompressedData;
         private int _lastCompressedQuality = -1;
         private string _lastCompressedFormat = "";
+        private string? _pendingOpenFilePath;
 
         // Batch Compression state
         private readonly ObservableCollection<BatchItem> _batchItems = new();
@@ -97,7 +99,25 @@ namespace ImageEditor
 
         private double CurrentScale => ImageMatrixTransform.Matrix.M11 > 0.0001 ? ImageMatrixTransform.Matrix.M11 : 1.0;
 
-        public MainWindow()
+        public MainWindow() : this(GetCommandLineInitialFile())
+        {
+        }
+
+        private static string? GetCommandLineInitialFile()
+        {
+            try
+            {
+                var args = Environment.GetCommandLineArgs();
+                if (args.Length > 1 && File.Exists(args[1]))
+                {
+                    return args[1];
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        public MainWindow(string? initialFilePath)
         {
             InitializeComponent();
             ApplicationThemeManager.Apply(ApplicationTheme.Dark);
@@ -115,8 +135,9 @@ namespace ImageEditor
                 Color = _currentColor,
                 Width = _currentThickness,
                 Height = _currentThickness,
-                FitToCurve = true,
-                StylusTip = StylusTip.Ellipse
+                FitToCurve = false,
+                StylusTip = StylusTip.Ellipse,
+                IgnorePressure = true
             };
             MainInkCanvas.StrokeCollected += MainInkCanvas_StrokeCollected;
             _historyManager.HistoryChanged += (s, ev) => UpdateHistoryButtonStates();
@@ -125,6 +146,11 @@ namespace ImageEditor
             BatchListView.ItemsSource = _batchItems;
             _batchItems.CollectionChanged += (s, ev) => UpdateBatchSummary();
             InitBatchConfig();
+
+            if (!string.IsNullOrEmpty(initialFilePath) && File.Exists(initialFilePath))
+            {
+                Loaded += (s, ev) => LoadFile(initialFilePath);
+            }
         }
 
         private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -266,6 +292,96 @@ namespace ImageEditor
             }
         }
 
+        private bool HasEditingProgress()
+        {
+            if (_currentImage == null) return false;
+            return _historyManager.CanUndo
+                || MainInkCanvas.Strokes.Count > 0
+                || _isCropping
+                || _savedUnappliedCropRect != null
+                || _currentImage != _originalLoadedImage;
+        }
+
+        private void RequestOpenImage(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+
+            // Only prompt if the user has edited the image at least once.
+            // If the image has not been edited at all (or no image is loaded), open directly.
+            if (!HasEditingProgress())
+            {
+                LoadFile(path);
+                return;
+            }
+
+            _pendingOpenFilePath = path;
+            ReplaceConfirmNewFileNameText.Text = System.IO.Path.GetFileName(path);
+            ReplaceConfirmNewFileNameText.ToolTip = path;
+            ReplaceConfirmMessageText.Text = "You have unsaved edits on the current image. Opening a new image will discard your progress.";
+
+            ReplaceConfirmModal.Visibility = Visibility.Visible;
+        }
+
+        private void ReplaceConfirmReplace_Click(object sender, RoutedEventArgs e)
+        {
+            string? path = _pendingOpenFilePath;
+            CloseReplaceConfirmModal();
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                LoadFile(path);
+            }
+        }
+
+        private void ReplaceConfirmNewWindow_Click(object sender, RoutedEventArgs e)
+        {
+            string? path = _pendingOpenFilePath;
+            CloseReplaceConfirmModal();
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                OpenInNewWindow(path);
+            }
+        }
+
+        private void CloseReplaceConfirmModal_Click(object sender, RoutedEventArgs e)
+        {
+            CloseReplaceConfirmModal();
+        }
+
+        private void CloseReplaceConfirmModal()
+        {
+            _pendingOpenFilePath = null;
+            ReplaceConfirmModal.Visibility = Visibility.Collapsed;
+        }
+
+        private void OpenInNewWindow(string path)
+        {
+            try
+            {
+                var newWin = new MainWindow(path);
+
+                var workArea = SystemParameters.WorkArea;
+                double newLeft = this.Left + 30;
+                double newTop = this.Top + 30;
+                if (newLeft + this.Width <= workArea.Right && newTop + this.Height <= workArea.Bottom)
+                {
+                    newWin.WindowStartupLocation = WindowStartupLocation.Manual;
+                    newWin.Left = newLeft;
+                    newWin.Top = newTop;
+                }
+                else
+                {
+                    newWin.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+
+                newWin.Show();
+                newWin.Activate();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Failed to open new window: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+
         private void Open_Click(object sender, RoutedEventArgs e)
         {
             if (_isCropping) ExitCropMode();
@@ -278,7 +394,7 @@ namespace ImageEditor
 
             if (dlg.ShowDialog() == true)
             {
-                LoadFile(dlg.FileName);
+                RequestOpenImage(dlg.FileName);
             }
         }
 
@@ -496,6 +612,7 @@ namespace ImageEditor
 
             _isManualZoom = false;
             UpdateZoomText();
+            UpdatePenCanvasThickness();
             if (_isCropping) UpdateCropVisuals();
         }
 
@@ -519,6 +636,7 @@ namespace ImageEditor
 
             _isManualZoom = true;
             UpdateZoomText();
+            UpdatePenCanvasThickness();
             if (_isCropping) UpdateCropVisuals();
         }
 
@@ -544,6 +662,7 @@ namespace ImageEditor
             _isManualZoom = true;
 
             UpdateZoomText();
+            UpdatePenCanvasThickness();
             if (_isCropping) UpdateCropVisuals();
         }
 
@@ -580,6 +699,7 @@ namespace ImageEditor
         {
             if (_isPanning)
             {
+                HidePenCursor();
                 Point current = e.GetPosition(ViewportGrid);
                 double dx = current.X - _panStart.X;
                 double dy = current.Y - _panStart.Y;
@@ -589,6 +709,12 @@ namespace ImageEditor
                 m.Translate(dx, dy);
                 ImageMatrixTransform.Matrix = m;
                 e.Handled = true;
+                return;
+            }
+
+            if (_isPenActive && _currentImage != null)
+            {
+                UpdatePenCursor(e.GetPosition(ViewportGrid));
             }
         }
 
@@ -599,6 +725,10 @@ namespace ImageEditor
                 _isPanning = false;
                 ViewportGrid.ReleaseMouseCapture();
                 ViewportGrid.Cursor = Cursors.Arrow;
+                if (_isPenActive && _currentImage != null)
+                {
+                    UpdatePenCursor(e.GetPosition(ViewportGrid));
+                }
                 e.Handled = true;
             }
         }
@@ -611,6 +741,7 @@ namespace ImageEditor
                 ViewportGrid.ReleaseMouseCapture();
                 ViewportGrid.Cursor = Cursors.Arrow;
             }
+            HidePenCursor();
         }
 
         private void ViewportGrid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -1066,6 +1197,16 @@ namespace ImageEditor
                 }
             }
 
+            if (ReplaceConfirmModal.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    CloseReplaceConfirmModal();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (_isCropping)
             {
                 if (e.Key == Key.Enter)
@@ -1169,9 +1310,13 @@ namespace ImageEditor
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if (files != null && files.Length > 0)
+                if (files != null && files.Length > 0 && File.Exists(files[0]))
                 {
-                    LoadFile(files[0]);
+                    string ext = System.IO.Path.GetExtension(files[0]);
+                    if (SupportedBatchExtensions.Contains(ext))
+                    {
+                        RequestOpenImage(files[0]);
+                    }
                 }
             }
         }
@@ -1193,7 +1338,76 @@ namespace ImageEditor
             CursorBtn.Appearance = ControlAppearance.Primary;
             MainInkCanvas.IsHitTestVisible = false;
             MainInkCanvas.EditingMode = InkCanvasEditingMode.None;
+            MainInkCanvas.UseCustomCursor = false;
+            MainInkCanvas.Cursor = null;
+            HidePenCursor();
             ViewportGrid.Cursor = Cursors.Arrow;
+        }
+
+        private Point _lastPenCursorPos = new Point(-100, -100);
+
+        private double GetCurrentZoomScale()
+        {
+            if (ImageMatrixTransform == null) return 1.0;
+            double scale = ImageMatrixTransform.Matrix.M11;
+            return (scale <= 0.0001) ? 1.0 : scale;
+        }
+
+        private double GetEffectiveCanvasThickness()
+        {
+            double scale = GetCurrentZoomScale();
+            return Math.Clamp(_currentThickness / scale, 0.1, 50000.0);
+        }
+
+        private void UpdatePenCanvasThickness()
+        {
+            if (MainInkCanvas == null) return;
+            double effective = GetEffectiveCanvasThickness();
+            MainInkCanvas.DefaultDrawingAttributes.Width = effective;
+            MainInkCanvas.DefaultDrawingAttributes.Height = effective;
+            MainInkCanvas.DefaultDrawingAttributes.IgnorePressure = true;
+        }
+
+        private void UpdatePenCursor(Point viewPos)
+        {
+            _lastPenCursorPos = viewPos;
+            if (!_isPenActive || _currentImage == null || PenCursorPreview == null || ImageContainer == null || ViewportGrid == null)
+            {
+                HidePenCursor();
+                return;
+            }
+
+            Point imgPos = ViewportGrid.TranslatePoint(viewPos, ImageContainer);
+            if (imgPos.X < 0 || imgPos.X > _currentImage.PixelWidth ||
+                imgPos.Y < 0 || imgPos.Y > _currentImage.PixelHeight)
+            {
+                HidePenCursor();
+                return;
+            }
+
+            PenCursorPreview.Width = _currentThickness;
+            PenCursorPreview.Height = _currentThickness;
+            Canvas.SetLeft(PenCursorPreview, viewPos.X - _currentThickness / 2.0);
+            Canvas.SetTop(PenCursorPreview, viewPos.Y - _currentThickness / 2.0);
+            PenCursorPreview.Visibility = Visibility.Visible;
+
+            if (MainInkCanvas != null)
+            {
+                MainInkCanvas.UseCustomCursor = true;
+                MainInkCanvas.Cursor = Cursors.None;
+            }
+        }
+
+        private void HidePenCursor()
+        {
+            if (PenCursorPreview != null)
+            {
+                PenCursorPreview.Visibility = Visibility.Collapsed;
+            }
+            if (MainInkCanvas != null && _isPenActive)
+            {
+                MainInkCanvas.Cursor = null;
+            }
         }
 
         public void ActivatePenMode()
@@ -1254,6 +1468,20 @@ namespace ImageEditor
                 PenThicknessPreviewLine.Stroke = new SolidColorBrush(_currentColor);
                 PenThicknessPreviewLine.StrokeThickness = _currentThickness;
             }
+            if (PenCursorPreview != null)
+            {
+                PenCursorPreview.Width = _currentThickness;
+                PenCursorPreview.Height = _currentThickness;
+                if (PenCursorPreview.Visibility == Visibility.Visible)
+                {
+                    Canvas.SetLeft(PenCursorPreview, _lastPenCursorPos.X - _currentThickness / 2.0);
+                    Canvas.SetTop(PenCursorPreview, _lastPenCursorPos.Y - _currentThickness / 2.0);
+                }
+            }
+            if (PenCursorPreviewFill != null)
+            {
+                PenCursorPreviewFill.Fill = new SolidColorBrush(Color.FromArgb(0x55, _currentColor.R, _currentColor.G, _currentColor.B));
+            }
         }
 
         private void MainInkCanvas_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
@@ -1264,18 +1492,12 @@ namespace ImageEditor
         private void ApplyPenModeToCanvas()
         {
             MainInkCanvas.IsHitTestVisible = true;
+            MainInkCanvas.UseCustomCursor = true;
             MainInkCanvas.DefaultDrawingAttributes.Color = _currentColor;
-            MainInkCanvas.DefaultDrawingAttributes.Width = _currentThickness;
-            MainInkCanvas.DefaultDrawingAttributes.Height = _currentThickness;
+            MainInkCanvas.DefaultDrawingAttributes.IgnorePressure = true;
+            UpdatePenCanvasThickness();
 
-            if (_strokeShape == StrokeShape.Freehand)
-            {
-                MainInkCanvas.EditingMode = InkCanvasEditingMode.Ink;
-            }
-            else
-            {
-                MainInkCanvas.EditingMode = InkCanvasEditingMode.None;
-            }
+            MainInkCanvas.EditingMode = InkCanvasEditingMode.None;
         }
 
         private void ThicknessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -1283,8 +1505,7 @@ namespace ImageEditor
             if (ThicknessValueText == null || MainInkCanvas == null) return;
             _currentThickness = Math.Round(e.NewValue);
             ThicknessValueText.Text = $"{_currentThickness} px";
-            MainInkCanvas.DefaultDrawingAttributes.Width = _currentThickness;
-            MainInkCanvas.DefaultDrawingAttributes.Height = _currentThickness;
+            UpdatePenCanvasThickness();
             UpdatePenPreview();
 
             if (_appConfig != null)
@@ -1370,7 +1591,10 @@ namespace ImageEditor
 
             if (isMiddleOrRight || isSpacePan)
             {
-                _isDrawingShape = false;
+                HidePenCursor();
+                _isDrawingStroke = false;
+                _freehandPoints.Clear();
+                ShapePreviewCanvas.Children.Clear();
                 _isPanning = true;
                 _panStart = e.GetPosition(ViewportGrid);
                 ViewportGrid.CaptureMouse();
@@ -1379,48 +1603,258 @@ namespace ImageEditor
                 return;
             }
 
-            if (_isPenActive && _strokeShape != StrokeShape.Freehand && e.LeftButton == MouseButtonState.Pressed)
+            if (_isPenActive && _currentImage != null && e.LeftButton == MouseButtonState.Pressed)
             {
-                _isDrawingShape = true;
-                _shapeStartPoint = e.GetPosition(MainInkCanvas);
+                Point pos = e.GetPosition(MainInkCanvas);
+                _isDrawingStroke = true;
                 MainInkCanvas.CaptureMouse();
+
+                if (_strokeShape == StrokeShape.Freehand)
+                {
+                    _freehandPoints.Clear();
+                    _freehandPoints.Add(pos);
+                    RenderFreehandPreview();
+                }
+                else
+                {
+                    _shapeStartPoint = pos;
+                    ShapePreviewCanvas.Children.Clear();
+                }
                 e.Handled = true;
             }
         }
 
         private void MainInkCanvas_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (_isDrawingShape && e.LeftButton == MouseButtonState.Pressed)
+            if (_isPenActive && _currentImage != null && !_isPanning)
+            {
+                UpdatePenCursor(e.GetPosition(ViewportGrid));
+            }
+
+            if (_isDrawingStroke && e.LeftButton == MouseButtonState.Pressed)
             {
                 Point current = e.GetPosition(MainInkCanvas);
-                RenderShapePreview(_shapeStartPoint, current);
+                if (_strokeShape == StrokeShape.Freehand)
+                {
+                    double minDistance = Math.Max(0.5, 1.0 / GetCurrentZoomScale());
+                    if (_freehandPoints.Count == 0 || Distance(_freehandPoints[^1], current) >= minDistance)
+                    {
+                        _freehandPoints.Add(current);
+                        RenderFreehandPreview();
+                    }
+                }
+                else
+                {
+                    RenderShapePreview(_shapeStartPoint, current);
+                }
                 e.Handled = true;
             }
         }
 
         private void MainInkCanvas_PreviewMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (_isDrawingShape)
+            if (_isDrawingStroke)
             {
-                _isDrawingShape = false;
+                _isDrawingStroke = false;
                 MainInkCanvas.ReleaseMouseCapture();
                 ShapePreviewCanvas.Children.Clear();
-                Point endPoint = e.GetPosition(MainInkCanvas);
 
-                if (Distance(_shapeStartPoint, endPoint) >= 2)
+                double thickness = GetEffectiveCanvasThickness();
+
+                if (_strokeShape == StrokeShape.Freehand)
                 {
-                    var stroke = CreateShapeStroke(_shapeStartPoint, endPoint, _strokeShape, _currentColor, _currentThickness);
-                    MainInkCanvas.Strokes.Add(stroke);
-                    _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
+                    if (_freehandPoints.Count > 0)
+                    {
+                        var stroke = CreateFreehandStroke(_freehandPoints, _currentColor, thickness);
+                        if (stroke.StylusPoints.Count > 0)
+                        {
+                            MainInkCanvas.Strokes.Add(stroke);
+                            _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
+                        }
+                        _freehandPoints.Clear();
+                    }
+                }
+                else
+                {
+                    Point endPoint = e.GetPosition(MainInkCanvas);
+                    if (Distance(_shapeStartPoint, endPoint) >= 2)
+                    {
+                        var stroke = CreateShapeStroke(_shapeStartPoint, endPoint, _strokeShape, _currentColor, thickness);
+                        MainInkCanvas.Strokes.Add(stroke);
+                        _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
+                    }
                 }
                 e.Handled = true;
             }
         }
 
+        private void MainInkCanvas_LostMouseCapture(object sender, MouseEventArgs e)
+        {
+            if (_isDrawingStroke)
+            {
+                _isDrawingStroke = false;
+                _freehandPoints.Clear();
+                ShapePreviewCanvas.Children.Clear();
+            }
+        }
+
+        private void RenderFreehandPreview()
+        {
+            ShapePreviewCanvas.Children.Clear();
+            if (_freehandPoints.Count == 0) return;
+
+            double thickness = GetEffectiveCanvasThickness();
+
+            if (_freehandPoints.Count == 1)
+            {
+                var dot = new System.Windows.Shapes.Ellipse
+                {
+                    Width = thickness,
+                    Height = thickness,
+                    Fill = new SolidColorBrush(_currentColor)
+                };
+                Canvas.SetLeft(dot, _freehandPoints[0].X - thickness / 2.0);
+                Canvas.SetTop(dot, _freehandPoints[0].Y - thickness / 2.0);
+                ShapePreviewCanvas.Children.Add(dot);
+                return;
+            }
+
+            var geom = BuildFreehandPathGeometry(_freehandPoints);
+            var path = new System.Windows.Shapes.Path
+            {
+                Data = geom,
+                Stroke = new SolidColorBrush(_currentColor),
+                StrokeThickness = thickness,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                StrokeLineJoin = PenLineJoin.Round
+            };
+            ShapePreviewCanvas.Children.Add(path);
+        }
+
+        private static PathGeometry BuildFreehandPathGeometry(IReadOnlyList<Point> points)
+        {
+            var geom = new PathGeometry();
+            if (points == null || points.Count == 0) return geom;
+
+            var figure = new PathFigure
+            {
+                StartPoint = points[0],
+                IsClosed = false,
+                IsFilled = false
+            };
+
+            if (points.Count == 1)
+            {
+                figure.Segments.Add(new LineSegment(points[0], true));
+            }
+            else if (points.Count == 2)
+            {
+                figure.Segments.Add(new LineSegment(points[1], true));
+            }
+            else
+            {
+                Point p0 = points[0];
+                Point p1 = points[1];
+                Point mid0 = new Point((p0.X + p1.X) / 2.0, (p0.Y + p1.Y) / 2.0);
+
+                figure.Segments.Add(new LineSegment(mid0, true));
+
+                for (int i = 1; i < points.Count - 1; i++)
+                {
+                    Point current = points[i];
+                    Point next = points[i + 1];
+                    Point nextMid = new Point((current.X + next.X) / 2.0, (current.Y + next.Y) / 2.0);
+
+                    figure.Segments.Add(new QuadraticBezierSegment(current, nextMid, true));
+                }
+
+                figure.Segments.Add(new LineSegment(points[^1], true));
+            }
+
+            geom.Figures.Add(figure);
+            return geom;
+        }
+
+        private Stroke CreateFreehandStroke(IReadOnlyList<Point> points, Color color, double thickness)
+        {
+            var pts = new StylusPointCollection();
+            var attr = new DrawingAttributes
+            {
+                Color = color,
+                Width = thickness,
+                Height = thickness,
+                FitToCurve = false,
+                StylusTip = StylusTip.Ellipse,
+                IgnorePressure = true
+            };
+
+            if (points == null || points.Count == 0)
+            {
+                return new Stroke(pts, attr);
+            }
+
+            if (points.Count == 1)
+            {
+                Point p0 = points[0];
+                pts.Add(new StylusPoint(p0.X, p0.Y));
+                pts.Add(new StylusPoint(p0.X + 0.1, p0.Y + 0.1));
+                return new Stroke(pts, attr);
+            }
+
+            var geom = BuildFreehandPathGeometry(points);
+            double scale = GetCurrentZoomScale();
+            double tolerance = Math.Clamp(0.25 / scale, 0.05, 0.5);
+            var flattened = geom.GetFlattenedPathGeometry(tolerance, ToleranceType.Absolute);
+
+            foreach (var figure in flattened.Figures)
+            {
+                AddStylusPointIfDistinct(pts, figure.StartPoint);
+                foreach (var segment in figure.Segments)
+                {
+                    if (segment is LineSegment line)
+                    {
+                        AddStylusPointIfDistinct(pts, line.Point);
+                    }
+                    else if (segment is PolyLineSegment polyLine)
+                    {
+                        foreach (var pt in polyLine.Points)
+                        {
+                            AddStylusPointIfDistinct(pts, pt);
+                        }
+                    }
+                }
+            }
+
+            if (pts.Count == 0)
+            {
+                foreach (var p in points)
+                {
+                    pts.Add(new StylusPoint(p.X, p.Y));
+                }
+            }
+
+            return new Stroke(pts, attr);
+        }
+
+        private static void AddStylusPointIfDistinct(StylusPointCollection pts, Point pt)
+        {
+            if (pts.Count > 0)
+            {
+                var last = pts[^1];
+                if (Math.Abs(last.X - pt.X) < 0.001 && Math.Abs(last.Y - pt.Y) < 0.001)
+                {
+                    return;
+                }
+            }
+            pts.Add(new StylusPoint(pt.X, pt.Y));
+        }
+
         private void RenderShapePreview(Point start, Point end)
         {
             ShapePreviewCanvas.Children.Clear();
-            var stroke = CreateShapeStroke(start, end, _strokeShape, _currentColor, _currentThickness);
+            double thickness = GetEffectiveCanvasThickness();
+            var stroke = CreateShapeStroke(start, end, _strokeShape, _currentColor, thickness);
             var geom = stroke.GetGeometry();
             var path = new System.Windows.Shapes.Path
             {
@@ -1439,7 +1873,8 @@ namespace ImageEditor
                 Width = thickness,
                 Height = thickness,
                 FitToCurve = false,
-                StylusTip = StylusTip.Ellipse
+                StylusTip = StylusTip.Ellipse,
+                IgnorePressure = true
             };
 
             if (shape == StrokeShape.Line)
@@ -1459,7 +1894,8 @@ namespace ImageEditor
                 else
                 {
                     double angle = Math.Atan2(dir.Y, dir.X);
-                    double headLen = Math.Clamp(thickness * 4.0, 14.0, 45.0);
+                    double headLen = Math.Min(thickness * 3.5, len * 0.4);
+                    headLen = Math.Max(headLen, thickness * 2.0);
                     double barbAngle = Math.PI * 0.82;
 
                     Point w1 = new Point(end.X + Math.Cos(angle + barbAngle) * headLen,
@@ -1486,7 +1922,8 @@ namespace ImageEditor
                 else
                 {
                     double angle = Math.Atan2(dir.Y, dir.X);
-                    double headLen = Math.Clamp(thickness * 4.0, 14.0, 45.0);
+                    double headLen = Math.Min(thickness * 3.5, len * 0.4);
+                    headLen = Math.Max(headLen, thickness * 2.0);
                     double barbAngle = Math.PI * 0.82;
 
                     Point w1 = new Point(end.X + Math.Cos(angle + barbAngle) * headLen,
