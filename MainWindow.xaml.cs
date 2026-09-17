@@ -107,9 +107,13 @@ namespace ImageEditor
             try
             {
                 var args = Environment.GetCommandLineArgs();
-                if (args.Length > 1 && File.Exists(args[1]))
+                for (int i = 1; i < args.Length; i++)
                 {
-                    return args[1];
+                    string candidate = args[i].Trim('"', ' ');
+                    if (!candidate.StartsWith('-') && File.Exists(candidate))
+                    {
+                        return candidate;
+                    }
                 }
             }
             catch { }

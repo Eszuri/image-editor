@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using System.Windows;
 
 namespace ImageEditor;
@@ -13,6 +14,25 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var args = Environment.GetCommandLineArgs();
+        if (args.Any(a => string.Equals(a, "--register-context-menu", StringComparison.OrdinalIgnoreCase)))
+        {
+            ContextMenuManager.Register();
+            MessageBox.Show("Context menu 'Edit image with Image Editor' registered successfully.", "Image Editor", MessageBoxButton.OK, MessageBoxImage.Information);
+            StartupUri = null;
+            Shutdown(0);
+            return;
+        }
+
+        if (args.Any(a => string.Equals(a, "--unregister-context-menu", StringComparison.OrdinalIgnoreCase)))
+        {
+            ContextMenuManager.Unregister();
+            MessageBox.Show("Context menu 'Edit image with Image Editor' removed successfully.", "Image Editor", MessageBoxButton.OK, MessageBoxImage.Information);
+            StartupUri = null;
+            Shutdown(0);
+            return;
+        }
+
         ShutdownMode = ShutdownMode.OnLastWindowClose;
         try
         {
