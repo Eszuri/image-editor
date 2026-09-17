@@ -41,10 +41,22 @@ namespace ImageEditor
         {
             get
             {
-                if (_newSize <= 0 || OriginalSize <= 0) return "";
+                if (_newSize <= 0 || OriginalSize <= 0)
+                {
+                    return "";
+                }
+
                 double diff = (1.0 - ((double)_newSize / OriginalSize)) * 100.0;
-                if (diff > 0.5) return $"-{diff:F0}%";
-                if (diff < -0.5) return $"+{-diff:F0}%";
+                if (diff > 0.5)
+                {
+                    return $"-{diff:F0}%";
+                }
+
+                if (diff < -0.5)
+                {
+                    return $"+{-diff:F0}%";
+                }
+
                 return "0%";
             }
         }

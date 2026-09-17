@@ -37,7 +37,10 @@ namespace ImageEditor
                 {
                     string json = File.ReadAllText(path);
                     var cfg = JsonSerializer.Deserialize<AppConfig>(json);
-                    if (cfg != null) return cfg;
+                    if (cfg != null)
+                    {
+                        return cfg;
+                    }
                 }
             }
             catch

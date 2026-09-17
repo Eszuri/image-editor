@@ -163,12 +163,41 @@ namespace ImageEditor
             _appConfig.PenThickness = _currentThickness;
             _appConfig.PenShape = _strokeShape.ToString();
             _appConfig.LastCompressSliderValue = Math.Round(CompressQualitySlider?.Value ?? 100.0);
-            _appConfig.LastBatchMode = BatchModeSliderRadio?.IsChecked == true ? "Slider" : (BatchModeTargetSizeRadio?.IsChecked == true ? "TargetSize" : "Percentage");
-            if (double.TryParse(BatchTargetSizeInput?.Text, out double ts)) _appConfig.LastBatchTargetSize = ts;
+            if (BatchModeSliderRadio?.IsChecked == true)
+            {
+                _appConfig.LastBatchMode = "Slider";
+            }
+            else if (BatchModeTargetSizeRadio?.IsChecked == true)
+            {
+                _appConfig.LastBatchMode = "TargetSize";
+            }
+            else
+            {
+                _appConfig.LastBatchMode = "Percentage";
+            }
+
+            if (double.TryParse(BatchTargetSizeInput?.Text, out double ts))
+            {
+                _appConfig.LastBatchTargetSize = ts;
+            }
+
             _appConfig.LastBatchTargetUnit = (BatchTargetSizeUnit?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "KB";
             _appConfig.LastBatchSkipSmaller = BatchSkipSmallerCheck?.IsChecked == true;
             _appConfig.LastBatchPercentage = Math.Round(BatchPercentageSlider?.Value ?? 50.0);
-            _appConfig.LastBatchOutputOption = BatchDestSubfolderRadio?.IsChecked == true ? "Subfolder" : (BatchDestCustomRadio?.IsChecked == true ? "Custom" : "Overwrite");
+
+            if (BatchDestCustomRadio?.IsChecked == true)
+            {
+                _appConfig.LastBatchOutputOption = "Custom";
+            }
+            else if (BatchDestOverwriteRadio?.IsChecked == true)
+            {
+                _appConfig.LastBatchOutputOption = "Overwrite";
+            }
+            else
+            {
+                _appConfig.LastBatchOutputOption = "Subfolder";
+            }
+
             _appConfig.LastBatchCustomFolder = BatchCustomFolderInput?.Text ?? "";
             _appConfig.Save();
             _batchCts?.Dispose();
@@ -213,7 +242,10 @@ namespace ImageEditor
 
         private void InitBatchConfig()
         {
-            if (_appConfig == null) return;
+            if (_appConfig == null)
+            {
+                return;
+            }
 
             if (_appConfig.LastBatchMode == "TargetSize")
             {
@@ -228,17 +260,25 @@ namespace ImageEditor
                 BatchModeSliderRadio.IsChecked = true;
             }
 
-            BatchTargetSizeInput.Text = _appConfig.LastBatchTargetSize > 0 ? _appConfig.LastBatchTargetSize.ToString() : "500";
+            BatchTargetSizeInput.Text = _appConfig.LastBatchTargetSize > 0
+                ? _appConfig.LastBatchTargetSize.ToString()
+                : "500";
             BatchTargetSizeUnit.SelectedIndex = _appConfig.LastBatchTargetUnit == "MB" ? 1 : 0;
             BatchSkipSmallerCheck.IsChecked = _appConfig.LastBatchSkipSmaller;
 
             double pct = _appConfig.LastBatchPercentage;
-            if (pct < 10 || pct > 90) pct = 50;
+            if (pct < 10 || pct > 90)
+            {
+                pct = 50;
+            }
             BatchPercentageSlider.Value = pct;
             BatchPercentageValueText.Text = $"{pct}%";
 
             double slider = _appConfig.LastCompressSliderValue;
-            if (slider < 10 || slider > 100) slider = 80;
+            if (slider < 10 || slider > 100)
+            {
+                slider = 80;
+            }
             BatchQualitySlider.Value = slider;
             BatchSliderValueText.Text = $"{slider}%";
 
@@ -297,7 +337,10 @@ namespace ImageEditor
 
         private bool HasEditingProgress()
         {
-            if (_currentImage == null) return false;
+            if (_currentImage == null)
+            {
+                return false;
+            }
             return _historyManager.CanUndo
                 || MainInkCanvas.Strokes.Count > 0
                 || _isCropping
@@ -307,7 +350,10 @@ namespace ImageEditor
 
         private void RequestOpenImage(string path)
         {
-            if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
+            if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                return;
+            }
 
             // Only prompt if the user has edited the image at least once.
             // If the image has not been edited at all (or no image is loaded), open directly.
@@ -320,7 +366,8 @@ namespace ImageEditor
             _pendingOpenFilePath = path;
             ReplaceConfirmNewFileNameText.Text = System.IO.Path.GetFileName(path);
             ReplaceConfirmNewFileNameText.ToolTip = path;
-            ReplaceConfirmMessageText.Text = "You have unsaved edits on the current image. Opening a new image will discard your progress.";
+            ReplaceConfirmMessageText.Text =
+                "You have unsaved edits on the current image. Opening a new image will discard your progress.";
 
             ReplaceConfirmModal.Visibility = Visibility.Visible;
         }
@@ -381,13 +428,20 @@ namespace ImageEditor
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Failed to open new window: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"Failed to open new window: {ex.Message}",
+                    "Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
             }
         }
 
         private void Open_Click(object sender, RoutedEventArgs e)
         {
-            if (_isCropping) ExitCropMode();
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
 
             var dlg = new OpenFileDialog
             {
@@ -444,14 +498,24 @@ namespace ImageEditor
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Failed to open image: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"Failed to open image: {ex.Message}",
+                    "Error",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
             }
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null) return;
-            if (_isCropping) ApplyCrop_Click(sender, e);
+            if (_currentImage == null)
+            {
+                return;
+            }
+            if (_isCropping)
+            {
+                ApplyCrop_Click(sender, e);
+            }
 
             BitmapSource src = GetComposedBitmap();
 
@@ -467,7 +531,9 @@ namespace ImageEditor
             {
                 try
                 {
-                    BitmapEncoder encoder = dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || dlg.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
+                    bool isJpeg = dlg.FileName.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                  dlg.FileName.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase);
+                    BitmapEncoder encoder = isJpeg
                         ? new JpegBitmapEncoder { QualityLevel = 95 }
                         : new PngBitmapEncoder();
 
@@ -478,11 +544,19 @@ namespace ImageEditor
                     }
                     _currentPath = dlg.FileName;
                     UpdateImageInfoText();
-                    System.Windows.MessageBox.Show("Image saved successfully!", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    System.Windows.MessageBox.Show(
+                        "Image saved successfully!",
+                        "Success",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Failed to save: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show(
+                        $"Failed to save: {ex.Message}",
+                        "Error",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
                 }
             }
         }
@@ -556,26 +630,46 @@ namespace ImageEditor
 
         private void Rotate_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null) return;
-            if (_isCropping) ExitCropMode();
+            if (_currentImage == null)
+            {
+                return;
+            }
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             _savedUnappliedCropRect = null;
 
             var (oldImage, oldStrokes, baseSource) = GetTransformBase();
             var newImage = new TransformedBitmap(baseSource, new RotateTransform(90));
-            if (newImage.CanFreeze) newImage.Freeze();
+            if (newImage.CanFreeze)
+            {
+                newImage.Freeze();
+            }
 
             ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
         }
 
         private void Flip_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null) return;
-            if (_isCropping) ExitCropMode();
+            if (_currentImage == null)
+            {
+                return;
+            }
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             _savedUnappliedCropRect = null;
 
             var (oldImage, oldStrokes, baseSource) = GetTransformBase();
-            var newImage = new TransformedBitmap(baseSource, new ScaleTransform(-1, 1, baseSource.PixelWidth / 2.0, 0));
-            if (newImage.CanFreeze) newImage.Freeze();
+            var newImage = new TransformedBitmap(
+                baseSource,
+                new ScaleTransform(-1, 1, baseSource.PixelWidth / 2.0, 0));
+            if (newImage.CanFreeze)
+            {
+                newImage.Freeze();
+            }
 
             ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
         }
@@ -584,7 +678,10 @@ namespace ImageEditor
 
         private void FitImageToViewport()
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             double viewW = ViewportGrid.ActualWidth;
             double viewH = ViewportGrid.ActualHeight;
@@ -602,8 +699,14 @@ namespace ImageEditor
             double availH = Math.Max(20, viewH - pad * 2);
 
             double scale = Math.Min(availW / imgW, availH / imgH);
-            if (scale > 1.0) scale = 1.0;
-            if (scale < 0.005) scale = 0.005;
+            if (scale > 1.0)
+            {
+                scale = 1.0;
+            }
+            if (scale < 0.005)
+            {
+                scale = 0.005;
+            }
 
             double offsetX = (viewW - imgW * scale) / 2.0;
             double offsetY = (viewH - imgH * scale) / 2.0;
@@ -616,12 +719,18 @@ namespace ImageEditor
             _isManualZoom = false;
             UpdateZoomText();
             UpdatePenCanvasThickness();
-            if (_isCropping) UpdateCropVisuals();
+            if (_isCropping)
+            {
+                UpdateCropVisuals();
+            }
         }
 
         private void ResetZoom()
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             double viewW = ViewportGrid.ActualWidth > 20 ? ViewportGrid.ActualWidth : 800;
             double viewH = ViewportGrid.ActualHeight > 20 ? ViewportGrid.ActualHeight : 500;
@@ -640,7 +749,10 @@ namespace ImageEditor
             _isManualZoom = true;
             UpdateZoomText();
             UpdatePenCanvasThickness();
-            if (_isCropping) UpdateCropVisuals();
+            if (_isCropping)
+            {
+                UpdateCropVisuals();
+            }
         }
 
 
@@ -652,13 +764,19 @@ namespace ImageEditor
 
         private void ZoomAt(Point center, double factor)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             Matrix m = ImageMatrixTransform.Matrix;
             double currentScale = m.M11 > 0.0001 ? m.M11 : 1.0;
             double newScale = Math.Clamp(currentScale * factor, 0.02, 50.0);
             double actualFactor = newScale / currentScale;
-            if (Math.Abs(actualFactor - 1.0) < 0.0001) return;
+            if (Math.Abs(actualFactor - 1.0) < 0.0001)
+            {
+                return;
+            }
 
             m.ScaleAt(actualFactor, actualFactor, center.X, center.Y);
             ImageMatrixTransform.Matrix = m;
@@ -666,12 +784,18 @@ namespace ImageEditor
 
             UpdateZoomText();
             UpdatePenCanvasThickness();
-            if (_isCropping) UpdateCropVisuals();
+            if (_isCropping)
+            {
+                UpdateCropVisuals();
+            }
         }
 
         private void Viewport_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             Point mousePos = e.GetPosition(ViewportGrid);
             double zoomFactor = e.Delta > 0 ? 1.15 : (1.0 / 1.15);
@@ -682,7 +806,10 @@ namespace ImageEditor
 
         private void Viewport_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             bool isPanTrigger = e.MiddleButton == MouseButtonState.Pressed ||
                                 e.RightButton == MouseButtonState.Pressed ||
@@ -761,7 +888,10 @@ namespace ImageEditor
 
         private void Crop_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             if (_isCropping)
             {
@@ -776,7 +906,10 @@ namespace ImageEditor
 
         private void EnterCropMode()
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
             ActivateCursorMode();
 
             _isCropping = true;
@@ -824,7 +957,10 @@ namespace ImageEditor
 
         private void UpdateCropVisuals()
         {
-            if (_currentImage == null || _cropRect.IsEmpty) return;
+            if (_currentImage == null || _cropRect.IsEmpty)
+            {
+                return;
+            }
 
             double imgW = _currentImage.PixelWidth;
             double imgH = _currentImage.PixelHeight;
@@ -907,12 +1043,18 @@ namespace ImageEditor
             int py = Math.Clamp((int)Math.Round(_cropRect.Y), 0, (int)imgH - 1);
 
             CropDimensionsText.Text = $"{pw} × {ph} px";
-            CropStatusText.Text = $"|  Position: ({px}, {py})  |  Original: {(int)imgW} × {(int)imgH} px  |  Zoom: {(int)Math.Round(currentScale * 100)}%";
+            CropStatusText.Text =
+                $"|  Position: ({px}, {py})  " +
+                $"|  Original: {(int)imgW} × {(int)imgH} px  " +
+                $"|  Zoom: {(int)Math.Round(currentScale * 100)}%";
         }
 
         private void CropCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (!_isCropping || _currentImage == null) return;
+            if (!_isCropping || _currentImage == null)
+            {
+                return;
+            }
 
             // Pan triggers: Middle click, Right click, or Space + Left click
             bool isMiddleOrRight = e.MiddleButton == MouseButtonState.Pressed || e.RightButton == MouseButtonState.Pressed;
@@ -928,7 +1070,10 @@ namespace ImageEditor
                 return;
             }
 
-            if (e.LeftButton != MouseButtonState.Pressed) return;
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                return;
+            }
 
             Point pt = e.GetPosition(CropCanvas);
             _dragStart = pt;
@@ -940,23 +1085,47 @@ namespace ImageEditor
 
             // 1. Check Corner Handles (4 Corners)
             if (Distance(pt, new Point(_cropRect.X, _cropRect.Y)) <= cornerThreshold)
+            {
                 _dragMode = DragMode.ResizeTL;
+            }
             else if (Distance(pt, new Point(_cropRect.Right, _cropRect.Y)) <= cornerThreshold)
+            {
                 _dragMode = DragMode.ResizeTR;
+            }
             else if (Distance(pt, new Point(_cropRect.Right, _cropRect.Bottom)) <= cornerThreshold)
+            {
                 _dragMode = DragMode.ResizeBR;
+            }
             else if (Distance(pt, new Point(_cropRect.X, _cropRect.Bottom)) <= cornerThreshold)
+            {
                 _dragMode = DragMode.ResizeBL;
+            }
 
             // 2. Check Side Edge Handles (4 Edges)
-            else if (Math.Abs(pt.Y - _cropRect.Y) <= edgeThreshold && pt.X >= _cropRect.X - edgeThreshold && pt.X <= _cropRect.Right + edgeThreshold)
+            else if (Math.Abs(pt.Y - _cropRect.Y) <= edgeThreshold &&
+                     pt.X >= _cropRect.X - edgeThreshold &&
+                     pt.X <= _cropRect.Right + edgeThreshold)
+            {
                 _dragMode = DragMode.ResizeT;
-            else if (Math.Abs(pt.Y - _cropRect.Bottom) <= edgeThreshold && pt.X >= _cropRect.X - edgeThreshold && pt.X <= _cropRect.Right + edgeThreshold)
+            }
+            else if (Math.Abs(pt.Y - _cropRect.Bottom) <= edgeThreshold &&
+                     pt.X >= _cropRect.X - edgeThreshold &&
+                     pt.X <= _cropRect.Right + edgeThreshold)
+            {
                 _dragMode = DragMode.ResizeB;
-            else if (Math.Abs(pt.X - _cropRect.X) <= edgeThreshold && pt.Y >= _cropRect.Y - edgeThreshold && pt.Y <= _cropRect.Bottom + edgeThreshold)
+            }
+            else if (Math.Abs(pt.X - _cropRect.X) <= edgeThreshold &&
+                     pt.Y >= _cropRect.Y - edgeThreshold &&
+                     pt.Y <= _cropRect.Bottom + edgeThreshold)
+            {
                 _dragMode = DragMode.ResizeL;
-            else if (Math.Abs(pt.X - _cropRect.Right) <= edgeThreshold && pt.Y >= _cropRect.Y - edgeThreshold && pt.Y <= _cropRect.Bottom + edgeThreshold)
+            }
+            else if (Math.Abs(pt.X - _cropRect.Right) <= edgeThreshold &&
+                     pt.Y >= _cropRect.Y - edgeThreshold &&
+                     pt.Y <= _cropRect.Bottom + edgeThreshold)
+            {
                 _dragMode = DragMode.ResizeR;
+            }
 
             // 3. Drag INSIDE crop: move crop box itself, not pan/zoom
             else if (_cropRect.Contains(pt))
@@ -979,7 +1148,10 @@ namespace ImageEditor
 
         private void CropCanvas_MouseMove(object sender, MouseEventArgs e)
         {
-            if (!_isCropping || _currentImage == null) return;
+            if (!_isCropping || _currentImage == null)
+            {
+                return;
+            }
 
             Point rawPt = e.GetPosition(CropCanvas);
             double imgW = _currentImage.PixelWidth;
@@ -1026,13 +1198,17 @@ namespace ImageEditor
                 {
                     CropCanvas.Cursor = Cursors.SizeNESW;
                 }
-                else if ((Math.Abs(rawPt.Y - _cropRect.Y) <= edgeThreshold || Math.Abs(rawPt.Y - _cropRect.Bottom) <= edgeThreshold) &&
-                         rawPt.X >= _cropRect.X - edgeThreshold && rawPt.X <= _cropRect.Right + edgeThreshold)
+                else if ((Math.Abs(rawPt.Y - _cropRect.Y) <= edgeThreshold ||
+                          Math.Abs(rawPt.Y - _cropRect.Bottom) <= edgeThreshold) &&
+                         rawPt.X >= _cropRect.X - edgeThreshold &&
+                         rawPt.X <= _cropRect.Right + edgeThreshold)
                 {
                     CropCanvas.Cursor = Cursors.SizeNS;
                 }
-                else if ((Math.Abs(rawPt.X - _cropRect.X) <= edgeThreshold || Math.Abs(rawPt.X - _cropRect.Right) <= edgeThreshold) &&
-                         rawPt.Y >= _cropRect.Y - edgeThreshold && rawPt.Y <= _cropRect.Bottom + edgeThreshold)
+                else if ((Math.Abs(rawPt.X - _cropRect.X) <= edgeThreshold ||
+                          Math.Abs(rawPt.X - _cropRect.Right) <= edgeThreshold) &&
+                         rawPt.Y >= _cropRect.Y - edgeThreshold &&
+                         rawPt.Y <= _cropRect.Bottom + edgeThreshold)
                 {
                     CropCanvas.Cursor = Cursors.SizeWE;
                 }
@@ -1064,25 +1240,41 @@ namespace ImageEditor
                 case DragMode.ResizeTL:
                     double leftTL = Math.Clamp(pt.X, 0, _cropRectStart.Right - 10);
                     double topTL = Math.Clamp(pt.Y, 0, _cropRectStart.Bottom - 10);
-                    _cropRect = new Rect(leftTL, topTL, _cropRectStart.Right - leftTL, _cropRectStart.Bottom - topTL);
+                    _cropRect = new Rect(
+                        leftTL,
+                        topTL,
+                        _cropRectStart.Right - leftTL,
+                        _cropRectStart.Bottom - topTL);
                     break;
 
                 case DragMode.ResizeTR:
                     double rightTR = Math.Clamp(pt.X, _cropRectStart.X + 10, imgW);
                     double topTR = Math.Clamp(pt.Y, 0, _cropRectStart.Bottom - 10);
-                    _cropRect = new Rect(_cropRectStart.X, topTR, rightTR - _cropRectStart.X, _cropRectStart.Bottom - topTR);
+                    _cropRect = new Rect(
+                        _cropRectStart.X,
+                        topTR,
+                        rightTR - _cropRectStart.X,
+                        _cropRectStart.Bottom - topTR);
                     break;
 
                 case DragMode.ResizeBR:
                     double rightBR = Math.Clamp(pt.X, _cropRectStart.X + 10, imgW);
                     double bottomBR = Math.Clamp(pt.Y, _cropRectStart.Y + 10, imgH);
-                    _cropRect = new Rect(_cropRectStart.X, _cropRectStart.Y, rightBR - _cropRectStart.X, bottomBR - _cropRectStart.Y);
+                    _cropRect = new Rect(
+                        _cropRectStart.X,
+                        _cropRectStart.Y,
+                        rightBR - _cropRectStart.X,
+                        bottomBR - _cropRectStart.Y);
                     break;
 
                 case DragMode.ResizeBL:
                     double leftBL = Math.Clamp(pt.X, 0, _cropRectStart.Right - 10);
                     double bottomBL = Math.Clamp(pt.Y, _cropRectStart.Y + 10, imgH);
-                    _cropRect = new Rect(leftBL, _cropRectStart.Y, _cropRectStart.Right - leftBL, bottomBL - _cropRectStart.Y);
+                    _cropRect = new Rect(
+                        leftBL,
+                        _cropRectStart.Y,
+                        _cropRectStart.Right - leftBL,
+                        bottomBL - _cropRectStart.Y);
                     break;
 
                 // 4 Side Edges: 1D free dragging, strictly bounded
@@ -1140,7 +1332,10 @@ namespace ImageEditor
 
         private void ApplyCrop_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null || _cropRect.IsEmpty || _cropRect.Width < 2 || _cropRect.Height < 2) return;
+            if (_currentImage == null || _cropRect.IsEmpty || _cropRect.Width < 2 || _cropRect.Height < 2)
+            {
+                return;
+            }
 
             var (oldImage, oldStrokes, baseSource) = GetTransformBase();
 
@@ -1150,7 +1345,10 @@ namespace ImageEditor
             int ph = Math.Clamp((int)Math.Round(_cropRect.Height), 1, baseSource.PixelHeight - py);
 
             var newImage = new CroppedBitmap(baseSource, new Int32Rect(px, py, pw, ph));
-            if (newImage.CanFreeze) newImage.Freeze();
+            if (newImage.CanFreeze)
+            {
+                newImage.Freeze();
+            }
 
             ExitCropMode();
             _savedUnappliedCropRect = null;
@@ -1333,7 +1531,10 @@ namespace ImageEditor
 
         public void ActivateCursorMode()
         {
-            if (_isCropping) ExitCropMode();
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             _isPenActive = false;
             PenSettingsPopup.IsOpen = false;
             PenBtn.Appearance = ControlAppearance.Secondary;
@@ -1351,7 +1552,10 @@ namespace ImageEditor
 
         private double GetCurrentZoomScale()
         {
-            if (ImageMatrixTransform == null) return 1.0;
+            if (ImageMatrixTransform == null)
+            {
+                return 1.0;
+            }
             double scale = ImageMatrixTransform.Matrix.M11;
             return (scale <= 0.0001) ? 1.0 : scale;
         }
@@ -1364,7 +1568,10 @@ namespace ImageEditor
 
         private void UpdatePenCanvasThickness()
         {
-            if (MainInkCanvas == null) return;
+            if (MainInkCanvas == null)
+            {
+                return;
+            }
             double effective = GetEffectiveCanvasThickness();
             MainInkCanvas.DefaultDrawingAttributes.Width = effective;
             MainInkCanvas.DefaultDrawingAttributes.Height = effective;
@@ -1374,7 +1581,8 @@ namespace ImageEditor
         private void UpdatePenCursor(Point viewPos)
         {
             _lastPenCursorPos = viewPos;
-            if (!_isPenActive || _currentImage == null || PenCursorPreview == null || ImageContainer == null || ViewportGrid == null)
+            if (!_isPenActive || _currentImage == null || PenCursorPreview == null ||
+                ImageContainer == null || ViewportGrid == null)
             {
                 HidePenCursor();
                 return;
@@ -1415,7 +1623,10 @@ namespace ImageEditor
 
         public void ActivatePenMode()
         {
-            if (_isCropping) ExitCropMode();
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             _isPenActive = true;
             PenBtn.Appearance = ControlAppearance.Primary;
             CursorBtn.Appearance = ControlAppearance.Secondary;
@@ -1426,7 +1637,10 @@ namespace ImageEditor
 
         private void Pen_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
             if (!_isPenActive)
             {
@@ -1441,19 +1655,28 @@ namespace ImageEditor
 
         private void Undo_Click(object sender, RoutedEventArgs e)
         {
-            if (_isCropping) ExitCropMode();
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             _historyManager.Undo();
         }
 
         private void Redo_Click(object sender, RoutedEventArgs e)
         {
-            if (_isCropping) ExitCropMode();
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             _historyManager.Redo();
         }
 
         private void UpdateHistoryButtonStates()
         {
-            if (UndoBtn == null || RedoBtn == null) return;
+            if (UndoBtn == null || RedoBtn == null)
+            {
+                return;
+            }
             UndoBtn.IsEnabled = _currentImage != null && _historyManager.CanUndo;
             RedoBtn.IsEnabled = _currentImage != null && _historyManager.CanRedo;
         }
@@ -1483,7 +1706,8 @@ namespace ImageEditor
             }
             if (PenCursorPreviewFill != null)
             {
-                PenCursorPreviewFill.Fill = new SolidColorBrush(Color.FromArgb(0x55, _currentColor.R, _currentColor.G, _currentColor.B));
+                PenCursorPreviewFill.Fill = new SolidColorBrush(
+                    Color.FromArgb(0x55, _currentColor.R, _currentColor.G, _currentColor.B));
             }
         }
 
@@ -1512,7 +1736,10 @@ namespace ImageEditor
 
         private void ThicknessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (ThicknessValueText == null || MainInkCanvas == null) return;
+            if (ThicknessValueText == null || MainInkCanvas == null)
+            {
+                return;
+            }
             _currentThickness = Math.Round(e.NewValue);
             ThicknessValueText.Text = $"{_currentThickness} px";
             UpdatePenCanvasThickness();
@@ -1757,8 +1984,14 @@ namespace ImageEditor
 
         private BitmapSource GetComposedBitmap()
         {
-            if (_currentImage == null) return null!;
-            if (MainInkCanvas.Strokes.Count == 0) return _currentImage;
+            if (_currentImage == null)
+            {
+                return null!;
+            }
+            if (MainInkCanvas.Strokes.Count == 0)
+            {
+                return _currentImage;
+            }
 
             int w = _currentImage.PixelWidth;
             int h = _currentImage.PixelHeight;
@@ -1779,15 +2012,16 @@ namespace ImageEditor
 
         #region Image Compression Logic
 
-        private void Compress_Click(object sender, RoutedEventArgs e)
-        {
-            OpenCompressModal(CompressTarget.Edited);
-        }
-
         private void OpenCompressModal(CompressTarget target)
         {
-            if (_currentImage == null) return;
-            if (_isCropping) ExitCropMode();
+            if (_currentImage == null)
+            {
+                return;
+            }
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
 
             _compressTarget = target;
             UpdateCompressionTargetUI();
@@ -1801,7 +2035,10 @@ namespace ImageEditor
 
             // Restore last session slider value, default to 100% (original resolution/size)
             double savedSlider = _appConfig?.LastCompressSliderValue ?? 100.0;
-            if (savedSlider < 10.0 || savedSlider > 100.0) savedSlider = 100.0;
+            if (savedSlider < 10.0 || savedSlider > 100.0)
+            {
+                savedSlider = 100.0;
+            }
             CompressQualitySlider.Value = savedSlider;
 
             CompressModal.Visibility = Visibility.Visible;
@@ -1810,7 +2047,10 @@ namespace ImageEditor
 
         private void CompressTargetEdited_Click(object sender, RoutedEventArgs e)
         {
-            if (_compressTarget == CompressTarget.Edited) return;
+            if (_compressTarget == CompressTarget.Edited)
+            {
+                return;
+            }
             _compressTarget = CompressTarget.Edited;
             UpdateCompressionTargetUI();
             UpdateCompressionEstimate();
@@ -1818,7 +2058,10 @@ namespace ImageEditor
 
         private void CompressTargetOriginal_Click(object sender, RoutedEventArgs e)
         {
-            if (_compressTarget == CompressTarget.Original) return;
+            if (_compressTarget == CompressTarget.Original)
+            {
+                return;
+            }
             _compressTarget = CompressTarget.Original;
             UpdateCompressionTargetUI();
             UpdateCompressionEstimate();
@@ -1826,7 +2069,10 @@ namespace ImageEditor
 
         private void UpdateCompressionTargetUI()
         {
-            if (CompressTargetEditedBtn == null || CompressTargetOriginalBtn == null) return;
+            if (CompressTargetEditedBtn == null || CompressTargetOriginalBtn == null)
+            {
+                return;
+            }
 
             if (_compressTarget == CompressTarget.Edited)
             {
@@ -1896,7 +2142,10 @@ namespace ImageEditor
 
         private void CompressQualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (CompressQualityValueText == null || CompressQualitySlider == null || _currentImage == null) return;
+            if (CompressQualityValueText == null || CompressQualitySlider == null || _currentImage == null)
+            {
+                return;
+            }
 
             if (_appConfig != null)
             {
@@ -1909,7 +2158,10 @@ namespace ImageEditor
 
         private void CompressMinus_Click(object sender, RoutedEventArgs e)
         {
-            if (CompressQualitySlider == null) return;
+            if (CompressQualitySlider == null)
+            {
+                return;
+            }
             if (CompressQualitySlider.Value > CompressQualitySlider.Minimum)
             {
                 CompressQualitySlider.Value = Math.Max(CompressQualitySlider.Minimum, CompressQualitySlider.Value - 1);
@@ -1918,7 +2170,10 @@ namespace ImageEditor
 
         private void CompressPlus_Click(object sender, RoutedEventArgs e)
         {
-            if (CompressQualitySlider == null) return;
+            if (CompressQualitySlider == null)
+            {
+                return;
+            }
             if (CompressQualitySlider.Value < CompressQualitySlider.Maximum)
             {
                 CompressQualitySlider.Value = Math.Min(CompressQualitySlider.Maximum, CompressQualitySlider.Value + 1);
@@ -1927,13 +2182,22 @@ namespace ImageEditor
 
         private void UpdateCompressionEstimate()
         {
-            if (_currentImage == null || CompressNewSizeText == null) return;
+            if (_currentImage == null || CompressNewSizeText == null)
+            {
+                return;
+            }
 
             int percent = (int)Math.Round(CompressQualitySlider.Value);
             CompressQualityValueText.Text = $"{percent}%";
 
-            if (CompressMinusBtn != null) CompressMinusBtn.IsEnabled = percent > (int)CompressQualitySlider.Minimum;
-            if (CompressPlusBtn != null) CompressPlusBtn.IsEnabled = percent < (int)CompressQualitySlider.Maximum;
+            if (CompressMinusBtn != null && CompressQualitySlider != null)
+            {
+                CompressMinusBtn.IsEnabled = percent > (int)CompressQualitySlider.Minimum;
+            }
+            if (CompressPlusBtn != null && CompressQualitySlider != null)
+            {
+                CompressPlusBtn.IsEnabled = percent < (int)CompressQualitySlider.Maximum;
+            }
 
             BitmapSource baseSource = GetCurrentCompressSource();
 
@@ -1952,7 +2216,8 @@ namespace ImageEditor
 
                 CompressNewSizeText.Text = ImageCompressor.FormatBytes(_originalFileSize);
                 CompressReductionText.Text = " (Original)";
-                CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
+                CompressReductionText.Foreground =
+                    new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
                 return;
             }
 
@@ -1972,17 +2237,20 @@ namespace ImageEditor
                     if (diff > 0.5)
                     {
                         CompressReductionText.Text = $" (-{diff:F0}%)";
-                        CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4CAF50"));
+                        CompressReductionText.Foreground =
+                            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4CAF50"));
                     }
                     else if (diff < -0.5)
                     {
                         CompressReductionText.Text = $" (+{-diff:F0}%)";
-                        CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFA726"));
+                        CompressReductionText.Foreground =
+                            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFA726"));
                     }
                     else
                     {
                         CompressReductionText.Text = " (0%)";
-                        CompressReductionText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
+                        CompressReductionText.Foreground =
+                            new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9E9E9E"));
                     }
                 }
             }
@@ -1991,12 +2259,22 @@ namespace ImageEditor
 
         private void SaveCompressed_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
 
-            string ext = _compressFormat == "jpg"
-                ? (!string.IsNullOrEmpty(_currentPath) && System.IO.Path.GetExtension(_currentPath).Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpeg" : ".jpg")
-                : ".png";
-            string filter = _compressFormat == "jpg" ? "JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg" : "PNG Image (*.png)|*.png";
+            string ext = ".png";
+            if (_compressFormat == "jpg")
+            {
+                bool isJpeg = !string.IsNullOrEmpty(_currentPath) &&
+                              System.IO.Path.GetExtension(_currentPath).Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
+                ext = isJpeg ? ".jpeg" : ".jpg";
+            }
+
+            string filter = _compressFormat == "jpg"
+                ? "JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg"
+                : "PNG Image (*.png)|*.png";
 
             string suffix = (_compressTarget == CompressTarget.Original) ? "_original_compressed" : "_compressed";
             string baseName = string.IsNullOrEmpty(_currentPath)
@@ -2005,7 +2283,9 @@ namespace ImageEditor
 
             var dlg = new SaveFileDialog
             {
-                Title = _compressTarget == CompressTarget.Original ? "Save Compressed Original Image" : "Save Compressed Edited Image",
+                Title = _compressTarget == CompressTarget.Original
+                    ? "Save Compressed Original Image"
+                    : "Save Compressed Edited Image",
                 Filter = filter,
                 DefaultExt = ext,
                 FileName = baseName + ext
@@ -2018,9 +2298,13 @@ namespace ImageEditor
                     int percent = (int)Math.Round(CompressQualitySlider.Value);
                     byte[] data;
 
-                    if (percent >= 100 && _compressTarget == CompressTarget.Original && !string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
+                    bool canDirectCopyOriginal = percent >= 100 &&
+                                                 _compressTarget == CompressTarget.Original &&
+                                                 !string.IsNullOrEmpty(_currentPath) &&
+                                                 File.Exists(_currentPath);
+                    if (canDirectCopyOriginal)
                     {
-                        File.Copy(_currentPath, dlg.FileName, true);
+                        File.Copy(_currentPath!, dlg.FileName, true);
                         CloseCompressModal();
                         System.Windows.MessageBox.Show(
                             "Image compressed and saved successfully.",
@@ -2030,9 +2314,15 @@ namespace ImageEditor
                         return;
                     }
 
-                    if (percent >= 100 && _compressTarget == CompressTarget.Edited && MainInkCanvas.Strokes.Count == 0 && !_historyManager.CanUndo && !string.IsNullOrEmpty(_currentPath) && File.Exists(_currentPath))
+                    bool canDirectCopyEdited = percent >= 100 &&
+                                               _compressTarget == CompressTarget.Edited &&
+                                               MainInkCanvas.Strokes.Count == 0 &&
+                                               !_historyManager.CanUndo &&
+                                               !string.IsNullOrEmpty(_currentPath) &&
+                                               File.Exists(_currentPath);
+                    if (canDirectCopyEdited)
                     {
-                        File.Copy(_currentPath, dlg.FileName, true);
+                        File.Copy(_currentPath!, dlg.FileName, true);
                         CloseCompressModal();
                         System.Windows.MessageBox.Show(
                             "Image compressed and saved successfully.",
@@ -2042,9 +2332,12 @@ namespace ImageEditor
                         return;
                     }
 
-                    if (_lastCompressedData != null && _lastCompressedQuality == percent && _lastCompressedFormat == _compressFormat)
+                    bool isCached = _lastCompressedData != null &&
+                                    _lastCompressedQuality == percent &&
+                                    _lastCompressedFormat == _compressFormat;
+                    if (isCached)
                     {
-                        data = _lastCompressedData;
+                        data = _lastCompressedData!;
                     }
                     else
                     {
@@ -2082,7 +2375,10 @@ namespace ImageEditor
 
         private void CompressCurrentItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
             e.Handled = true;
 
             if (CompressSubMenuBorder.Visibility == Visibility.Visible)
@@ -2099,7 +2395,10 @@ namespace ImageEditor
 
         private void CompressEditedItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
             CompressCurrentItem.Background = Brushes.Transparent;
             CompressSubMenuBorder.Visibility = Visibility.Collapsed;
             CompressMenuPopup.IsOpen = false;
@@ -2108,7 +2407,10 @@ namespace ImageEditor
 
         private void CompressOriginalItem_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (_currentImage == null) return;
+            if (_currentImage == null)
+            {
+                return;
+            }
             CompressCurrentItem.Background = Brushes.Transparent;
             CompressSubMenuBorder.Visibility = Visibility.Collapsed;
             CompressMenuPopup.IsOpen = false;
@@ -2156,7 +2458,10 @@ namespace ImageEditor
 
         private void OpenBatchCompressModal()
         {
-            if (_isCropping) ExitCropMode();
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
             BatchCompressModal.Visibility = Visibility.Visible;
             UpdateBatchSummary();
         }
@@ -2215,19 +2520,27 @@ namespace ImageEditor
                 try
                 {
                     var files = Directory.EnumerateFiles(dlg.FolderName, "*.*", SearchOption.AllDirectories)
-                                         .Where(f => SupportedBatchExtensions.Contains(System.IO.Path.GetExtension(f)));
+                                         .Where(f => SupportedBatchExtensions.Contains(
+                                             System.IO.Path.GetExtension(f)));
                     AddFilesToBatch(files);
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Failed to scan folder: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show(
+                        $"Failed to scan folder: {ex.Message}",
+                        "Error",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
                 }
             }
         }
 
         private void BatchClearQueue_Click(object sender, RoutedEventArgs e)
         {
-            if (_isBatchProcessing) return;
+            if (_isBatchProcessing)
+            {
+                return;
+            }
             _batchItems.Clear();
             UpdateBatchSummary();
             BatchProgressBar.Value = 0;
@@ -2238,7 +2551,10 @@ namespace ImageEditor
 
         private void BatchRemoveItem_Click(object sender, RoutedEventArgs e)
         {
-            if (_isBatchProcessing) return;
+            if (_isBatchProcessing)
+            {
+                return;
+            }
             if (sender is FrameworkElement el && el.Tag is BatchItem item)
             {
                 _batchItems.Remove(item);
@@ -2265,14 +2581,17 @@ namespace ImageEditor
                         if (File.Exists(p))
                         {
                             if (SupportedBatchExtensions.Contains(System.IO.Path.GetExtension(p)))
+                            {
                                 allFiles.Add(p);
+                            }
                         }
                         else if (Directory.Exists(p))
                         {
                             try
                             {
                                 var dirFiles = Directory.EnumerateFiles(p, "*.*", SearchOption.AllDirectories)
-                                                        .Where(f => SupportedBatchExtensions.Contains(System.IO.Path.GetExtension(f)));
+                                                        .Where(f => SupportedBatchExtensions.Contains(
+                                                            System.IO.Path.GetExtension(f)));
                                 allFiles.AddRange(dirFiles);
                             }
                             catch { }
@@ -2290,12 +2609,18 @@ namespace ImageEditor
 
             foreach (var path in paths)
             {
-                if (existing.Contains(path)) continue;
+                if (existing.Contains(path))
+                {
+                    continue;
+                }
 
                 try
                 {
                     var fi = new FileInfo(path);
-                    if (!fi.Exists) continue;
+                    if (!fi.Exists)
+                    {
+                        continue;
+                    }
 
                     int w = 0, h = 0;
                     try
@@ -2355,7 +2680,10 @@ namespace ImageEditor
 
         private void UpdateBatchModeVisuals()
         {
-            if (BatchSliderControls == null || BatchTargetSizeControls == null || BatchPercentageControls == null) return;
+            if (BatchSliderControls == null || BatchTargetSizeControls == null || BatchPercentageControls == null)
+            {
+                return;
+            }
 
             bool isSlider = BatchModeSliderRadio?.IsChecked == true;
             bool isTarget = BatchModeTargetSizeRadio?.IsChecked == true;
@@ -2368,31 +2696,53 @@ namespace ImageEditor
 
         private void BatchQualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (BatchSliderValueText == null) return;
+            if (BatchSliderValueText == null)
+            {
+                return;
+            }
             int val = (int)Math.Round(e.NewValue);
             BatchSliderValueText.Text = $"{val}%";
 
-            if (BatchSliderMinusBtn != null) BatchSliderMinusBtn.IsEnabled = val > (int)BatchQualitySlider.Minimum;
-            if (BatchSliderPlusBtn != null) BatchSliderPlusBtn.IsEnabled = val < (int)BatchQualitySlider.Maximum;
+            if (BatchSliderMinusBtn != null && BatchQualitySlider != null)
+            {
+                BatchSliderMinusBtn.IsEnabled = val > (int)BatchQualitySlider.Minimum;
+            }
+            if (BatchSliderPlusBtn != null && BatchQualitySlider != null)
+            {
+                BatchSliderPlusBtn.IsEnabled = val < (int)BatchQualitySlider.Maximum;
+            }
         }
 
         private void BatchSliderMinus_Click(object sender, RoutedEventArgs e)
         {
-            if (BatchQualitySlider == null) return;
+            if (BatchQualitySlider == null)
+            {
+                return;
+            }
             if (BatchQualitySlider.Value > BatchQualitySlider.Minimum)
+            {
                 BatchQualitySlider.Value = Math.Max(BatchQualitySlider.Minimum, BatchQualitySlider.Value - 1);
+            }
         }
 
         private void BatchSliderPlus_Click(object sender, RoutedEventArgs e)
         {
-            if (BatchQualitySlider == null) return;
+            if (BatchQualitySlider == null)
+            {
+                return;
+            }
             if (BatchQualitySlider.Value < BatchQualitySlider.Maximum)
+            {
                 BatchQualitySlider.Value = Math.Min(BatchQualitySlider.Maximum, BatchQualitySlider.Value + 1);
+            }
         }
 
         private void BatchPercentageSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (BatchPercentageValueText == null) return;
+            if (BatchPercentageValueText == null)
+            {
+                return;
+            }
             int val = (int)Math.Round(e.NewValue);
             BatchPercentageValueText.Text = $"{val}%";
         }
@@ -2419,32 +2769,47 @@ namespace ImageEditor
 
         private async void BatchStart_Click(object sender, RoutedEventArgs e)
         {
-            if (_isBatchProcessing) return;
-            if (_batchItems.Count == 0) return;
+            if (_isBatchProcessing || _batchItems.Count == 0)
+            {
+                return;
+            }
 
             // Validate Destination
             bool isCustom = BatchDestCustomRadio.IsChecked == true;
             bool isOverwrite = BatchDestOverwriteRadio.IsChecked == true;
             string customFolder = BatchCustomFolderInput.Text.Trim();
             string subfolderName = BatchSubfolderNameInput.Text.Trim();
-            if (string.IsNullOrEmpty(subfolderName)) subfolderName = "_compressed";
+            if (string.IsNullOrEmpty(subfolderName))
+            {
+                subfolderName = "_compressed";
+            }
 
             if (isCustom)
             {
                 if (string.IsNullOrEmpty(customFolder))
                 {
-                    System.Windows.MessageBox.Show("Please select or enter a valid custom output folder.", "Folder Required", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show(
+                        "Please select or enter a valid custom output folder.",
+                        "Folder Required",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
                     return;
                 }
 
                 try
                 {
                     if (!Directory.Exists(customFolder))
+                    {
                         Directory.CreateDirectory(customFolder);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Cannot use custom folder: {ex.Message}", "Invalid Folder", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show(
+                        $"Cannot use custom folder: {ex.Message}",
+                        "Invalid Folder",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
                     return;
                 }
             }
@@ -2452,12 +2817,17 @@ namespace ImageEditor
             if (isOverwrite)
             {
                 var confirm = System.Windows.MessageBox.Show(
-                    "Warning: Overwrite original files is selected!\n\nThis will permanently replace your original image files with the compressed versions. Are you sure you want to proceed?",
+                    "Warning: Overwrite original files is selected!\n\n" +
+                    "This will permanently replace your original image files " +
+                    "with the compressed versions. Are you sure you want to proceed?",
                     "Confirm Overwrite",
                     System.Windows.MessageBoxButton.YesNo,
                     System.Windows.MessageBoxImage.Warning);
 
-                if (confirm != System.Windows.MessageBoxResult.Yes) return;
+                if (confirm != System.Windows.MessageBoxResult.Yes)
+                {
+                    return;
+                }
             }
 
             // Determine Compression Mode & Parameters
@@ -2473,7 +2843,11 @@ namespace ImageEditor
             {
                 if (!double.TryParse(BatchTargetSizeInput.Text, out double sizeVal) || sizeVal <= 0)
                 {
-                    System.Windows.MessageBox.Show("Please enter a valid positive target size number.", "Invalid Target Size", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    System.Windows.MessageBox.Show(
+                        "Please enter a valid positive target size number.",
+                        "Invalid Target Size",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
                     return;
                 }
                 string unit = (BatchTargetSizeUnit.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "KB";
@@ -2516,7 +2890,10 @@ namespace ImageEditor
             {
                 for (int i = 0; i < _batchItems.Count; i++)
                 {
-                    if (token.IsCancellationRequested) break;
+                    if (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
 
                     var item = _batchItems[i];
                     item.Status = BatchItemStatus.Processing;
@@ -2543,11 +2920,17 @@ namespace ImageEditor
                     {
                         string originalDir = System.IO.Path.GetDirectoryName(item.FilePath)!;
                         outDir = System.IO.Path.Combine(originalDir, subfolderName);
-                        if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
+                        if (!Directory.Exists(outDir))
+                        {
+                            Directory.CreateDirectory(outDir);
+                        }
                         outPath = System.IO.Path.Combine(outDir, item.FileName);
                     }
 
-                    if (string.IsNullOrEmpty(firstOutputDir)) firstOutputDir = outDir;
+                    if (string.IsNullOrEmpty(firstOutputDir))
+                    {
+                        firstOutputDir = outDir;
+                    }
 
                     // Execute compression in background thread
                     await Task.Run(() =>
@@ -2578,11 +2961,13 @@ namespace ImageEditor
                             }
                             else if (isTargetSizeMode)
                             {
-                                compressedData = ImageCompressor.CompressToTargetSize(bmp, format, targetBytes, item.OriginalSize);
+                                compressedData = ImageCompressor.CompressToTargetSize(
+                                    bmp, format, targetBytes, item.OriginalSize);
                             }
                             else // isPercentageMode
                             {
-                                compressedData = ImageCompressor.CompressToPercentageOfSize(bmp, format, percentageRatio, item.OriginalSize);
+                                compressedData = ImageCompressor.CompressToPercentageOfSize(
+                                    bmp, format, percentageRatio, item.OriginalSize);
                             }
 
                             // Write to temp file then move to avoid partial writes
@@ -2623,7 +3008,9 @@ namespace ImageEditor
                     string savedStr = savedBytes > 0
                         ? $"Saved {ImageCompressor.FormatBytes(savedBytes)} (-{((double)savedBytes / originalSum * 100):F0}%)"
                         : "No reduction";
-                    BatchProgressStatusText.Text = $"Finished {total} files! {savedStr}. Success: {successCount}, Skipped: {skippedCount}, Errors: {errorCount}";
+                    BatchProgressStatusText.Text =
+                        $"Finished {total} files! {savedStr}. " +
+                        $"Success: {successCount}, Skipped: {skippedCount}, Errors: {errorCount}";
                     BatchProgressPercentText.Text = "100%";
                 }
             }
@@ -2665,7 +3052,11 @@ namespace ImageEditor
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Could not open folder: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    System.Windows.MessageBox.Show(
+                        $"Could not open folder: {ex.Message}",
+                        "Error",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
                 }
             }
         }

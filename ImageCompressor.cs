@@ -12,7 +12,10 @@ namespace ImageEditor
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
             var decoder = BitmapDecoder.Create(stream, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
             var frame = decoder.Frames[0];
-            if (frame.CanFreeze) frame.Freeze();
+            if (frame.CanFreeze)
+            {
+                frame.Freeze();
+            }
             return frame;
         }
 
@@ -41,7 +44,10 @@ namespace ImageEditor
         public static byte[] CompressToTargetSize(BitmapSource source, string format, long targetBytes, long originalBytes)
         {
             format = format.ToLowerInvariant().TrimStart('.');
-            if (targetBytes <= 0) targetBytes = originalBytes;
+            if (targetBytes <= 0)
+            {
+                targetBytes = originalBytes;
+            }
 
             if (format == "jpg" || format == "jpeg")
             {
@@ -53,7 +59,10 @@ namespace ImageEditor
                 {
                     // Can we do 98 or 100?
                     byte[] maxData = EncodeJpeg(prepared, 100);
-                    if (maxData.Length <= targetBytes) return maxData;
+                    if (maxData.Length <= targetBytes)
+                    {
+                        return maxData;
+                    }
                     return bestData;
                 }
 
@@ -88,7 +97,10 @@ namespace ImageEditor
                 // step 2 = highest quality / largest size
                 // step 28 = highest compression / smallest size
                 byte[] uncompressed = EncodePng(source);
-                if (uncompressed.Length <= targetBytes) return uncompressed;
+                if (uncompressed.Length <= targetBytes)
+                {
+                    return uncompressed;
+                }
 
                 int stepLow = 2;
                 int stepHigh = 28;
@@ -116,9 +128,16 @@ namespace ImageEditor
             }
         }
 
-        public static byte[] CompressToPercentageOfSize(BitmapSource source, string format, double targetPercent, long originalBytes)
+        public static byte[] CompressToPercentageOfSize(
+            BitmapSource source,
+            string format,
+            double targetPercent,
+            long originalBytes)
         {
-            if (originalBytes <= 0) originalBytes = 1024 * 500;
+            if (originalBytes <= 0)
+            {
+                originalBytes = 1024 * 500;
+            }
             long targetBytes = (long)Math.Round(originalBytes * (Math.Clamp(targetPercent, 1.0, 100.0) / 100.0));
             return CompressToTargetSize(source, format, targetBytes, originalBytes);
         }
@@ -143,7 +162,10 @@ namespace ImageEditor
 
         public static byte[] EncodePngWithStep(BitmapSource source, int step)
         {
-            if (step <= 1) return EncodePng(source);
+            if (step <= 1)
+            {
+                return EncodePng(source);
+            }
 
             BitmapSource bgraSource = source;
             if (source.Format != PixelFormats.Bgra32 && source.Format != PixelFormats.Bgr32)
@@ -184,7 +206,10 @@ namespace ImageEditor
                             source.Format == PixelFormats.Prgba64 ||
                             source.Format == PixelFormats.Rgba64;
 
-            if (!hasAlpha) return source;
+            if (!hasAlpha)
+            {
+                return source;
+            }
 
             var dv = new DrawingVisual();
             using (var dc = dv.RenderOpen())
@@ -194,15 +219,27 @@ namespace ImageEditor
             }
             var rtb = new RenderTargetBitmap(source.PixelWidth, source.PixelHeight, 96, 96, PixelFormats.Pbgra32);
             rtb.Render(dv);
-            if (rtb.CanFreeze) rtb.Freeze();
+            if (rtb.CanFreeze)
+            {
+                rtb.Freeze();
+            }
             return rtb;
         }
 
         public static string FormatBytes(long bytes)
         {
-            if (bytes <= 0) return "0 B";
-            if (bytes < 1024) return $"{bytes} B";
-            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+            if (bytes <= 0)
+            {
+                return "0 B";
+            }
+            if (bytes < 1024)
+            {
+                return $"{bytes} B";
+            }
+            if (bytes < 1024 * 1024)
+            {
+                return $"{bytes / 1024.0:F1} KB";
+            }
             return $"{bytes / (1024.0 * 1024.0):F2} MB";
         }
     }

@@ -43,7 +43,12 @@ namespace ImageEditor
         private readonly BitmapSource _newImage;
         private readonly Stroke[] _newStrokes;
 
-        public ImageTransformAction(MainWindow window, BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource newImage, Stroke[] newStrokes)
+        public ImageTransformAction(
+            MainWindow window,
+            BitmapSource oldImage,
+            Stroke[] oldStrokes,
+            BitmapSource newImage,
+            Stroke[] newStrokes)
         {
             _window = window ?? throw new ArgumentNullException(nameof(window));
             _oldImage = oldImage;
@@ -87,7 +92,11 @@ namespace ImageEditor
 
         public void Undo()
         {
-            if (!CanUndo) return;
+            if (!CanUndo)
+            {
+                return;
+            }
+
             int lastIdx = _undoStack.Count - 1;
             var action = _undoStack[lastIdx];
             _undoStack.RemoveAt(lastIdx);
@@ -99,7 +108,10 @@ namespace ImageEditor
 
         public void Redo()
         {
-            if (!CanRedo) return;
+            if (!CanRedo)
+            {
+                return;
+            }
             int lastIdx = _redoStack.Count - 1;
             var action = _redoStack[lastIdx];
             _redoStack.RemoveAt(lastIdx);

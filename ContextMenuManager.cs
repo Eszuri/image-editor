@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.Win32;
@@ -14,34 +13,32 @@ public static class ContextMenuManager
         ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".gif", ".tiff", ".tif", ".ico"
     };
 
-    public static bool IsRegistered()
-    {
-        try
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Classes\SystemFileAssociations\image\shell\" + VerbKey);
-            return key != null;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     public static void Register(string? exePath = null)
     {
         exePath ??= Process.GetCurrentProcess().MainModule?.FileName;
-        if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath)) return;
+        if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
+        {
+            return;
+        }
 
         string command = $"\"{exePath}\" \"%1\"";
         string icon = $"\"{exePath}\",0";
 
         // Register under generic image perceived type
-        RegisterVerb(@"Software\Classes\SystemFileAssociations\image\shell\" + VerbKey, MenuText, icon, command);
+        RegisterVerb(
+            @"Software\Classes\SystemFileAssociations\image\shell\" + VerbKey,
+            MenuText,
+            icon,
+            command);
 
         // Register under explicit image file extensions
         foreach (var ext in SupportedExtensions)
         {
-            RegisterVerb($@"Software\Classes\SystemFileAssociations\{ext}\shell\{VerbKey}", MenuText, icon, command);
+            RegisterVerb(
+                $@"Software\Classes\SystemFileAssociations\{ext}\shell\{VerbKey}",
+                MenuText,
+                icon,
+                command);
         }
     }
 
@@ -59,7 +56,11 @@ public static class ContextMenuManager
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(subKeyPath);
-            if (key == null) return;
+            if (key == null)
+            {
+                return;
+            }
+
             key.SetValue("", text);
             key.SetValue("Icon", icon);
 

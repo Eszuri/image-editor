@@ -1,5 +1,4 @@
 using System.IO;
-using System.Linq;
 using System.Windows;
 
 namespace ImageEditor;
@@ -10,7 +9,8 @@ namespace ImageEditor;
 public partial class App : Application
 {
     [System.Runtime.InteropServices.DllImport("shell32.dll", SetLastError = true)]
-    private static extern void SetCurrentProcessExplicitAppUserModelID([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string AppID);
+    private static extern void SetCurrentProcessExplicitAppUserModelID(
+        [System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string AppID);
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -18,7 +18,11 @@ public partial class App : Application
         if (args.Any(a => string.Equals(a, "--register-context-menu", StringComparison.OrdinalIgnoreCase)))
         {
             ContextMenuManager.Register();
-            MessageBox.Show("Context menu 'Edit image with Image Editor' registered successfully.", "Image Editor", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                "Context menu 'Edit image with Image Editor' registered successfully.",
+                "Image Editor",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             StartupUri = null;
             Shutdown(0);
             return;
@@ -27,7 +31,11 @@ public partial class App : Application
         if (args.Any(a => string.Equals(a, "--unregister-context-menu", StringComparison.OrdinalIgnoreCase)))
         {
             ContextMenuManager.Unregister();
-            MessageBox.Show("Context menu 'Edit image with Image Editor' removed successfully.", "Image Editor", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                "Context menu 'Edit image with Image Editor' removed successfully.",
+                "Image Editor",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             StartupUri = null;
             Shutdown(0);
             return;
@@ -54,4 +62,3 @@ public partial class App : Application
         base.OnStartup(e);
     }
 }
-
