@@ -58,6 +58,11 @@ namespace ImageEditor
         private string _lastCompressedFormat = "";
         private string? _pendingOpenFilePath;
 
+        // Resize state
+        private int _origResizeWidth;
+        private int _origResizeHeight;
+        private bool _isUpdatingResizeInputs;
+
         // Batch Compression state
         private readonly ObservableCollection<BatchItem> _batchItems = new();
         private CancellationTokenSource? _batchCts;
@@ -214,6 +219,17 @@ namespace ImageEditor
             }
 
             _appConfig.LastBatchCustomFolder = BatchCustomFolderInput?.Text ?? "";
+
+            _appConfig.LastResizeMaintainAspectRatio = ResizeLockAspectCheck?.IsChecked == true;
+            if (int.TryParse(ResizeWidthInput?.Text, out int rw) && rw > 0)
+            {
+                _appConfig.LastResizeWidth = rw;
+            }
+            if (int.TryParse(ResizeHeightInput?.Text, out int rh) && rh > 0)
+            {
+                _appConfig.LastResizeHeight = rh;
+            }
+
             _appConfig.Save();
             _batchCts?.Dispose();
         }
@@ -333,12 +349,14 @@ namespace ImageEditor
             CursorText.Visibility = vis;
             CropText.Visibility = vis;
             PenText.Visibility = vis;
+            ResizeText.Visibility = vis;
             RotateText.Visibility = vis;
             FlipText.Visibility = vis;
 
             CursorBtn.HorizontalContentAlignment = align;
             CropBtn.HorizontalContentAlignment = align;
             PenBtn.HorizontalContentAlignment = align;
+            ResizeBtn.HorizontalContentAlignment = align;
             RotateBtn.HorizontalContentAlignment = align;
             FlipBtn.HorizontalContentAlignment = align;
             SidebarToggleBtn.HorizontalContentAlignment = align;
@@ -1384,6 +1402,7 @@ namespace ImageEditor
             CursorBtn.IsEnabled = enabled;
             CropBtn.IsEnabled = enabled;
             PenBtn.IsEnabled = enabled;
+            ResizeBtn.IsEnabled = enabled;
             RotateBtn.IsEnabled = enabled;
             FlipBtn.IsEnabled = enabled;
             SaveBtn.IsEnabled = enabled;
@@ -1393,6 +1412,22 @@ namespace ImageEditor
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
+            if (ResizeModal.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    CloseResizeModal();
+                    e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Enter)
+                {
+                    ApplyResize_Click(sender, e);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (BatchCompressModal.Visibility == Visibility.Visible)
             {
                 if (e.Key == Key.Escape)
@@ -2021,6 +2056,193 @@ namespace ImageEditor
             var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
             rtb.Render(dv);
             return rtb;
+        }
+
+        #endregion
+
+        #region Image Resize Logic
+
+        private void Resize_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentImage == null)
+            {
+                return;
+            }
+
+            if (_isCropping)
+            {
+                ExitCropMode();
+            }
+            _savedUnappliedCropRect = null;
+            PenSettingsPopup.IsOpen = false;
+            CompressMenuPopup.IsOpen = false;
+
+            var (oldImage, oldStrokes, baseSource) = GetTransformBase();
+            _origResizeWidth = baseSource.PixelWidth;
+            _origResizeHeight = baseSource.PixelHeight;
+
+            ResizeOriginalSizeText.Text = $"{_origResizeWidth} × {_origResizeHeight} px";
+
+            _isUpdatingResizeInputs = true;
+            ResizeLockAspectCheck.IsChecked = _appConfig.LastResizeMaintainAspectRatio;
+            int initialW = _appConfig.LastResizeWidth > 0 ? _appConfig.LastResizeWidth : _origResizeWidth;
+            int initialH = _appConfig.LastResizeHeight > 0 ? _appConfig.LastResizeHeight : _origResizeHeight;
+            ResizeWidthInput.Text = initialW.ToString();
+            ResizeHeightInput.Text = initialH.ToString();
+            _isUpdatingResizeInputs = false;
+
+            UpdateResizePreview();
+            ResizeModal.Visibility = Visibility.Visible;
+            ResizeWidthInput.Focus();
+            ResizeWidthInput.SelectAll();
+        }
+
+        private void CloseResizeModal_Click(object sender, RoutedEventArgs e)
+        {
+            CloseResizeModal();
+        }
+
+        private void CloseResizeModal()
+        {
+            ResizeModal.Visibility = Visibility.Collapsed;
+        }
+
+        private void ResizeWidthInput_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingResizeInputs || _origResizeWidth <= 0 || _origResizeHeight <= 0)
+            {
+                return;
+            }
+
+            if (int.TryParse(ResizeWidthInput.Text, out int val) && val > 0)
+            {
+                if (ResizeLockAspectCheck.IsChecked == true)
+                {
+                    _isUpdatingResizeInputs = true;
+                    int newH = (int)Math.Max(1, Math.Round((double)val * _origResizeHeight / _origResizeWidth));
+                    ResizeHeightInput.Text = newH.ToString();
+                    _isUpdatingResizeInputs = false;
+                }
+            }
+
+            var (isValid, targetW, targetH) = GetTargetResizeDimensions();
+            if (isValid)
+            {
+                _appConfig.LastResizeWidth = targetW;
+                _appConfig.LastResizeHeight = targetH;
+            }
+
+            UpdateResizePreview();
+        }
+
+        private void ResizeHeightInput_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingResizeInputs || _origResizeWidth <= 0 || _origResizeHeight <= 0)
+            {
+                return;
+            }
+
+            if (int.TryParse(ResizeHeightInput.Text, out int val) && val > 0)
+            {
+                if (ResizeLockAspectCheck.IsChecked == true)
+                {
+                    _isUpdatingResizeInputs = true;
+                    int newW = (int)Math.Max(1, Math.Round((double)val * _origResizeWidth / _origResizeHeight));
+                    ResizeWidthInput.Text = newW.ToString();
+                    _isUpdatingResizeInputs = false;
+                }
+            }
+
+            var (isValid, targetW, targetH) = GetTargetResizeDimensions();
+            if (isValid)
+            {
+                _appConfig.LastResizeWidth = targetW;
+                _appConfig.LastResizeHeight = targetH;
+            }
+
+            UpdateResizePreview();
+        }
+
+        private void ResizeLockAspectCheck_Click(object sender, RoutedEventArgs e)
+        {
+            _appConfig.LastResizeMaintainAspectRatio = ResizeLockAspectCheck.IsChecked == true;
+            _appConfig.Save();
+
+            if (ResizeLockAspectCheck.IsChecked == true && _origResizeWidth > 0 && _origResizeHeight > 0)
+            {
+                if (int.TryParse(ResizeWidthInput.Text, out int val) && val > 0)
+                {
+                    _isUpdatingResizeInputs = true;
+                    int newH = (int)Math.Max(1, Math.Round((double)val * _origResizeHeight / _origResizeWidth));
+                    ResizeHeightInput.Text = newH.ToString();
+                    _isUpdatingResizeInputs = false;
+                }
+                UpdateResizePreview();
+            }
+        }
+
+        private (bool isValid, int targetW, int targetH) GetTargetResizeDimensions()
+        {
+            if (!int.TryParse(ResizeWidthInput?.Text, out int valW) || valW <= 0 ||
+                !int.TryParse(ResizeHeightInput?.Text, out int valH) || valH <= 0)
+            {
+                return (false, 0, 0);
+            }
+
+            bool valid = valW > 0 && valH > 0 && valW <= 32768 && valH <= 32768;
+            return (valid, valW, valH);
+        }
+
+        private void UpdateResizePreview()
+        {
+            if (ResizeNewSizeText == null || ApplyResizeBtn == null)
+            {
+                return;
+            }
+
+            var (isValid, targetW, targetH) = GetTargetResizeDimensions();
+            if (!isValid || _origResizeWidth <= 0 || _origResizeHeight <= 0)
+            {
+                ResizeNewSizeText.Text = "Invalid dimensions";
+                ApplyResizeBtn.IsEnabled = false;
+                return;
+            }
+
+            ResizeNewSizeText.Text = $"{targetW} × {targetH} px";
+            ApplyResizeBtn.IsEnabled = true;
+        }
+
+        private void ApplyResize_Click(object sender, RoutedEventArgs e)
+        {
+            var (isValid, targetW, targetH) = GetTargetResizeDimensions();
+            if (!isValid || _currentImage == null)
+            {
+                return;
+            }
+
+            _appConfig.LastResizeWidth = targetW;
+            _appConfig.LastResizeHeight = targetH;
+            _appConfig.LastResizeMaintainAspectRatio = ResizeLockAspectCheck.IsChecked == true;
+            _appConfig.Save();
+
+            if (targetW == _origResizeWidth && targetH == _origResizeHeight)
+            {
+                CloseResizeModal();
+                return;
+            }
+
+            var (oldImage, oldStrokes, baseSource) = GetTransformBase();
+            double scaleX = (double)targetW / baseSource.PixelWidth;
+            double scaleY = (double)targetH / baseSource.PixelHeight;
+
+            var newImage = new TransformedBitmap(baseSource, new ScaleTransform(scaleX, scaleY));
+            if (newImage.CanFreeze)
+            {
+                newImage.Freeze();
+            }
+
+            CloseResizeModal();
+            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
         }
 
         #endregion

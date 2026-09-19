@@ -313,6 +313,20 @@
 
                     <!-- Transformation Tools Stack -->
                     <StackPanel Grid.Row="3">
+                        <ui:Button x:Name="ResizeBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   IsEnabled="False"
+                                   ToolTip="Resize Image"
+                                   Click="Resize_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowExpand24" FontSize="18"/>
+                                <TextBlock x:Name="ResizeText" Text="Resize" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+
                         <ui:Button x:Name="RotateBtn"
                                    HorizontalAlignment="Stretch"
                                    HorizontalContentAlignment="Left"
@@ -1086,6 +1100,79 @@
                             <ui:Button Content="Open in New Window" Icon="{ui:SymbolIcon WindowNew24}" Appearance="Secondary" Click="ReplaceConfirmNewWindow_Click" Margin="0,0,8,0" Padding="12,6"/>
                             <ui:Button Content="Replace" Icon="{ui:SymbolIcon ArrowSwap24}" Appearance="Danger" Click="ReplaceConfirmReplace_Click" Padding="14,6"/>
                         </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Resize Image Modal Dialog Overlay -->
+        <Grid x:Name="ResizeModal" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" Background="#B2000000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="440" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                    CornerRadius="10" Padding="24,20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.6" Direction="270"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,14">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="ArrowExpand24" FontSize="20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Text="Resize Image" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseResizeModal_Click" Padding="6" ToolTip="Cancel (Esc)"/>
+                    </Grid>
+
+                    <!-- Original Dimensions Pill -->
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,14">
+                        <Grid>
+                            <TextBlock Text="Original Dimensions" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ResizeOriginalSizeText" Text="1920 × 1080 px" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Dimension Inputs Grid -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Width Column -->
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Width" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <TextBox x:Name="ResizeWidthInput" Padding="8,6" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox" TextChanged="ResizeWidthInput_TextChanged"/>
+                                <TextBlock Text="px" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Height Column -->
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Height" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <TextBox x:Name="ResizeHeightInput" Padding="8,6" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox" TextChanged="ResizeHeightInput_TextChanged"/>
+                                <TextBlock Text="px" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Maintain Aspect Ratio Checkbox -->
+                    <CheckBox x:Name="ResizeLockAspectCheck" Content="Maintain aspect ratio" IsChecked="True" Click="ResizeLockAspectCheck_Click" Margin="0,0,0,14"/>
+
+                    <!-- New Size Preview / Summary Badge -->
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,20">
+                        <Grid>
+                            <TextBlock Text="New Dimensions" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ResizeNewSizeText" Text="1920 × 1080 px" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AccentFillColorDefaultBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Action Buttons Footer -->
+                    <Grid>
+                        <ui:Button Content="Cancel" Appearance="Secondary" HorizontalAlignment="Left" Click="CloseResizeModal_Click" Padding="16,6"/>
+                        <ui:Button x:Name="ApplyResizeBtn" Content="Apply Resize" Appearance="Primary" HorizontalAlignment="Right" Click="ApplyResize_Click" Padding="16,6"/>
                     </Grid>
                 </StackPanel>
             </Border>

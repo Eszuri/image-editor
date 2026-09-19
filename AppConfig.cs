@@ -17,6 +17,9 @@ namespace ImageEditor
         public double LastBatchPercentage { get; set; } = 50.0;
         public string LastBatchOutputOption { get; set; } = "Subfolder";
         public string LastBatchCustomFolder { get; set; } = "";
+        public bool LastResizeMaintainAspectRatio { get; set; } = true;
+        public int LastResizeWidth { get; set; }
+        public int LastResizeHeight { get; set; }
 
         public static string ConfigFilePath
         {
