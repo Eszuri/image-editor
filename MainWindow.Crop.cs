@@ -17,6 +17,7 @@ namespace ImageEditor
         private Point _dragStart;
         private DragMode _dragMode = DragMode.None;
         private Rect? _savedUnappliedCropRect;
+        private OverlayImageItem? _croppingOverlayItem;
 
         private enum DragMode
         {
@@ -60,6 +61,7 @@ namespace ImageEditor
             }
             ActivateCursorMode();
 
+            _croppingOverlayItem = null;
             _isCropping = true;
             _dragMode = DragMode.None;
             CropCanvas.Visibility = Visibility.Visible;
@@ -88,13 +90,34 @@ namespace ImageEditor
             UpdateCropVisuals();
         }
 
+        public void StartCropOverlayImage(OverlayImageItem item)
+        {
+            if (_currentImage == null || item == null || item.IsLocked)
+            {
+                return;
+            }
+            ActivateCursorMode();
+
+            _croppingOverlayItem = item;
+            _isCropping = true;
+            _dragMode = DragMode.None;
+            CropCanvas.Visibility = Visibility.Visible;
+            CropBottomBar.Visibility = Visibility.Visible;
+            CropBtn.Appearance = ControlAppearance.Primary;
+            CursorBtn.Appearance = ControlAppearance.Secondary;
+
+            _cropRect = new Rect(item.X, item.Y, item.Width, item.Height);
+            UpdateCropVisuals();
+        }
+
         private void ExitCropMode()
         {
-            if (_isCropping && !_cropRect.IsEmpty && _cropRect.Width >= 2 && _cropRect.Height >= 2)
+            if (_isCropping && !_cropRect.IsEmpty && _cropRect.Width >= 2 && _cropRect.Height >= 2 && _croppingOverlayItem == null)
             {
                 _savedUnappliedCropRect = _cropRect;
             }
             _isCropping = false;
+            _croppingOverlayItem = null;
             _dragMode = DragMode.None;
             CropCanvas.Visibility = Visibility.Collapsed;
             CropBottomBar.Visibility = Visibility.Collapsed;
@@ -185,16 +208,34 @@ namespace ImageEditor
             MaskRight.Height = Math.Max(0, _cropRect.Height);
 
             // Realtime Pixel Dimensions & Status
-            int pw = Math.Max(1, (int)Math.Round(_cropRect.Width));
-            int ph = Math.Max(1, (int)Math.Round(_cropRect.Height));
-            int px = Math.Clamp((int)Math.Round(_cropRect.X), 0, (int)imgW - 1);
-            int py = Math.Clamp((int)Math.Round(_cropRect.Y), 0, (int)imgH - 1);
+            if (_croppingOverlayItem != null)
+            {
+                var src = _croppingOverlayItem.Source;
+                double scaleX = (double)src.PixelWidth / Math.Max(1.0, _croppingOverlayItem.Width);
+                double scaleY = (double)src.PixelHeight / Math.Max(1.0, _croppingOverlayItem.Height);
 
-            CropDimensionsText.Text = $"{pw} × {ph} px";
-            CropStatusText.Text =
-                $"|  Position: ({px}, {py})  " +
-                $"|  Original: {(int)imgW} × {(int)imgH} px  " +
-                $"|  Zoom: {(int)Math.Round(currentScale * 100)}%";
+                int pw = Math.Max(1, (int)Math.Round(_cropRect.Width * scaleX));
+                int ph = Math.Max(1, (int)Math.Round(_cropRect.Height * scaleY));
+
+                CropDimensionsText.Text = $"{pw} × {ph} px";
+                CropStatusText.Text =
+                    $"|  Layer: '{_croppingOverlayItem.Name}'  " +
+                    $"|  Crop: {(int)Math.Round(_cropRect.Width)} × {(int)Math.Round(_cropRect.Height)}  " +
+                    $"|  Original: {src.PixelWidth} × {src.PixelHeight} px";
+            }
+            else
+            {
+                int pw = Math.Max(1, (int)Math.Round(_cropRect.Width));
+                int ph = Math.Max(1, (int)Math.Round(_cropRect.Height));
+                int px = Math.Clamp((int)Math.Round(_cropRect.X), 0, (int)imgW - 1);
+                int py = Math.Clamp((int)Math.Round(_cropRect.Y), 0, (int)imgH - 1);
+
+                CropDimensionsText.Text = $"{pw} × {ph} px";
+                CropStatusText.Text =
+                    $"|  Position: ({px}, {py})  " +
+                    $"|  Original: {(int)imgW} × {(int)imgH} px  " +
+                    $"|  Zoom: {(int)Math.Round(currentScale * 100)}%";
+            }
         }
 
         private void CropCanvas_MouseDown(object sender, MouseButtonEventArgs e)
@@ -305,8 +346,13 @@ namespace ImageEditor
             double imgW = _currentImage.PixelWidth;
             double imgH = _currentImage.PixelHeight;
 
-            // Clamped position strictly inside the image canvas [0, imgW] and [0, imgH]
-            Point pt = new Point(Math.Clamp(rawPt.X, 0, imgW), Math.Clamp(rawPt.Y, 0, imgH));
+            double minX = _croppingOverlayItem != null ? _croppingOverlayItem.X : 0;
+            double maxX = _croppingOverlayItem != null ? _croppingOverlayItem.X + _croppingOverlayItem.Width : imgW;
+            double minY = _croppingOverlayItem != null ? _croppingOverlayItem.Y : 0;
+            double maxY = _croppingOverlayItem != null ? _croppingOverlayItem.Y + _croppingOverlayItem.Height : imgH;
+
+            // Clamped position strictly inside bounds
+            Point pt = new Point(Math.Clamp(rawPt.X, minX, maxX), Math.Clamp(rawPt.Y, minY, maxY));
 
             // 1. If currently panning the view
             if (_dragMode == DragMode.Pan)
@@ -379,15 +425,15 @@ namespace ImageEditor
                 case DragMode.Move:
                     double dx = rawPt.X - _dragStart.X;
                     double dy = rawPt.Y - _dragStart.Y;
-                    double nx = Math.Clamp(_cropRectStart.X + dx, 0, Math.Max(0, imgW - _cropRectStart.Width));
-                    double ny = Math.Clamp(_cropRectStart.Y + dy, 0, Math.Max(0, imgH - _cropRectStart.Height));
+                    double nx = Math.Clamp(_cropRectStart.X + dx, minX, Math.Max(minX, maxX - _cropRectStart.Width));
+                    double ny = Math.Clamp(_cropRectStart.Y + dy, minY, Math.Max(minY, maxY - _cropRectStart.Height));
                     _cropRect = new Rect(nx, ny, _cropRectStart.Width, _cropRectStart.Height);
                     break;
 
-                // 4 Corners: Free 2D dragging, strictly bounded within [0, imgW] and [0, imgH]
+                // 4 Corners: Free 2D dragging, strictly bounded
                 case DragMode.ResizeTL:
-                    double leftTL = Math.Clamp(pt.X, 0, _cropRectStart.Right - 10);
-                    double topTL = Math.Clamp(pt.Y, 0, _cropRectStart.Bottom - 10);
+                    double leftTL = Math.Clamp(pt.X, minX, _cropRectStart.Right - 10);
+                    double topTL = Math.Clamp(pt.Y, minY, _cropRectStart.Bottom - 10);
                     _cropRect = new Rect(
                         leftTL,
                         topTL,
@@ -396,8 +442,8 @@ namespace ImageEditor
                     break;
 
                 case DragMode.ResizeTR:
-                    double rightTR = Math.Clamp(pt.X, _cropRectStart.X + 10, imgW);
-                    double topTR = Math.Clamp(pt.Y, 0, _cropRectStart.Bottom - 10);
+                    double rightTR = Math.Clamp(pt.X, _cropRectStart.X + 10, maxX);
+                    double topTR = Math.Clamp(pt.Y, minY, _cropRectStart.Bottom - 10);
                     _cropRect = new Rect(
                         _cropRectStart.X,
                         topTR,
@@ -406,8 +452,8 @@ namespace ImageEditor
                     break;
 
                 case DragMode.ResizeBR:
-                    double rightBR = Math.Clamp(pt.X, _cropRectStart.X + 10, imgW);
-                    double bottomBR = Math.Clamp(pt.Y, _cropRectStart.Y + 10, imgH);
+                    double rightBR = Math.Clamp(pt.X, _cropRectStart.X + 10, maxX);
+                    double bottomBR = Math.Clamp(pt.Y, _cropRectStart.Y + 10, maxY);
                     _cropRect = new Rect(
                         _cropRectStart.X,
                         _cropRectStart.Y,
@@ -416,8 +462,8 @@ namespace ImageEditor
                     break;
 
                 case DragMode.ResizeBL:
-                    double leftBL = Math.Clamp(pt.X, 0, _cropRectStart.Right - 10);
-                    double bottomBL = Math.Clamp(pt.Y, _cropRectStart.Y + 10, imgH);
+                    double leftBL = Math.Clamp(pt.X, minX, _cropRectStart.Right - 10);
+                    double bottomBL = Math.Clamp(pt.Y, _cropRectStart.Y + 10, maxY);
                     _cropRect = new Rect(
                         leftBL,
                         _cropRectStart.Y,
@@ -427,22 +473,22 @@ namespace ImageEditor
 
                 // 4 Side Edges: 1D free dragging, strictly bounded
                 case DragMode.ResizeT:
-                    double topT = Math.Clamp(pt.Y, 0, _cropRectStart.Bottom - 10);
+                    double topT = Math.Clamp(pt.Y, minY, _cropRectStart.Bottom - 10);
                     _cropRect = new Rect(_cropRectStart.X, topT, _cropRectStart.Width, _cropRectStart.Bottom - topT);
                     break;
 
                 case DragMode.ResizeB:
-                    double bottomB = Math.Clamp(pt.Y, _cropRectStart.Y + 10, imgH);
+                    double bottomB = Math.Clamp(pt.Y, _cropRectStart.Y + 10, maxY);
                     _cropRect = new Rect(_cropRectStart.X, _cropRectStart.Y, _cropRectStart.Width, bottomB - _cropRectStart.Y);
                     break;
 
                 case DragMode.ResizeL:
-                    double leftL = Math.Clamp(pt.X, 0, _cropRectStart.Right - 10);
+                    double leftL = Math.Clamp(pt.X, minX, _cropRectStart.Right - 10);
                     _cropRect = new Rect(leftL, _cropRectStart.Y, _cropRectStart.Right - leftL, _cropRectStart.Height);
                     break;
 
                 case DragMode.ResizeR:
-                    double rightR = Math.Clamp(pt.X, _cropRectStart.X + 10, imgW);
+                    double rightR = Math.Clamp(pt.X, _cropRectStart.X + 10, maxX);
                     _cropRect = new Rect(_cropRectStart.X, _cropRectStart.Y, rightR - _cropRectStart.X, _cropRectStart.Height);
                     break;
             }
@@ -480,27 +526,63 @@ namespace ImageEditor
 
         private void ApplyCrop_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentImage == null || _cropRect.IsEmpty || _cropRect.Width < 2 || _cropRect.Height < 2)
+            if (_cropRect.IsEmpty || _cropRect.Width < 2 || _cropRect.Height < 2)
+            {
+                return;
+            }
+
+            if (_croppingOverlayItem != null)
+            {
+                var target = _croppingOverlayItem;
+                var oldBmp = target.Source;
+                var oldRect = new Rect(target.X, target.Y, target.Width, target.Height);
+
+                double scaleX = (double)oldBmp.PixelWidth / Math.Max(1.0, target.Width);
+                double scaleY = (double)oldBmp.PixelHeight / Math.Max(1.0, target.Height);
+
+                double relX = _cropRect.X - target.X;
+                double relY = _cropRect.Y - target.Y;
+
+                int px = Math.Clamp((int)Math.Round(relX * scaleX), 0, oldBmp.PixelWidth - 1);
+                int py = Math.Clamp((int)Math.Round(relY * scaleY), 0, oldBmp.PixelHeight - 1);
+                int pw = Math.Clamp((int)Math.Round(_cropRect.Width * scaleX), 1, oldBmp.PixelWidth - px);
+                int ph = Math.Clamp((int)Math.Round(_cropRect.Height * scaleY), 1, oldBmp.PixelHeight - py);
+
+                var newImage = new CroppedBitmap(oldBmp, new Int32Rect(px, py, pw, ph));
+                if (newImage.CanFreeze)
+                {
+                    newImage.Freeze();
+                }
+                var newRect = new Rect(_cropRect.X, _cropRect.Y, _cropRect.Width, _cropRect.Height);
+
+                ExitCropMode();
+
+                InternalCropLayer(target, newImage, newRect);
+                _historyManager.Record(new CropLayerImageAction(this, target, oldBmp, oldRect, newImage, newRect));
+                return;
+            }
+
+            if (_currentImage == null)
             {
                 return;
             }
 
             var (oldImage, oldStrokes, baseSource) = GetTransformBase();
 
-            int px = Math.Clamp((int)Math.Round(_cropRect.X), 0, baseSource.PixelWidth - 1);
-            int py = Math.Clamp((int)Math.Round(_cropRect.Y), 0, baseSource.PixelHeight - 1);
-            int pw = Math.Clamp((int)Math.Round(_cropRect.Width), 1, baseSource.PixelWidth - px);
-            int ph = Math.Clamp((int)Math.Round(_cropRect.Height), 1, baseSource.PixelHeight - py);
+            int pxBase = Math.Clamp((int)Math.Round(_cropRect.X), 0, baseSource.PixelWidth - 1);
+            int pyBase = Math.Clamp((int)Math.Round(_cropRect.Y), 0, baseSource.PixelHeight - 1);
+            int pwBase = Math.Clamp((int)Math.Round(_cropRect.Width), 1, baseSource.PixelWidth - pxBase);
+            int phBase = Math.Clamp((int)Math.Round(_cropRect.Height), 1, baseSource.PixelHeight - pyBase);
 
-            var newImage = new CroppedBitmap(baseSource, new Int32Rect(px, py, pw, ph));
-            if (newImage.CanFreeze)
+            var newCanvasImage = new CroppedBitmap(baseSource, new Int32Rect(pxBase, pyBase, pwBase, phBase));
+            if (newCanvasImage.CanFreeze)
             {
-                newImage.Freeze();
+                newCanvasImage.Freeze();
             }
 
             ExitCropMode();
             _savedUnappliedCropRect = null;
-            ApplyImageTransform(oldImage, oldStrokes, newImage, Array.Empty<Stroke>());
+            ApplyImageTransform(oldImage, oldStrokes, newCanvasImage, Array.Empty<Stroke>());
         }
 
         private void CancelCrop_Click(object sender, RoutedEventArgs e)

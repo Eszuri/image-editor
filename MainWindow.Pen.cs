@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Ink;
 using System.Windows.Input;
@@ -136,6 +136,7 @@ namespace ImageEditor
             {
                 ExitCropMode();
             }
+            DeselectLayer();
             _isPenActive = true;
             PenBtn.Appearance = ControlAppearance.Primary;
             CursorBtn.Appearance = ControlAppearance.Secondary;
@@ -220,13 +221,56 @@ namespace ImageEditor
             }
         }
 
+        public StrokeLayerItem AddStrokeLayer(Stroke stroke, StrokeShape shape, string? name = null, bool autoSelect = false)
+        {
+            if (_currentImage == null || stroke == null)
+            {
+                return null!;
+            }
+
+            double canvasW = _currentImage.PixelWidth;
+            double canvasH = _currentImage.PixelHeight;
+
+            // Clamp stylus points so stroke coordinates never exceed canvas dimensions
+            stroke = ClampStrokeToCanvas(stroke, canvasW, canvasH);
+
+            int maxZ = _layers.Count > 0 ? _layers.Max(x => x.ZIndex) : 0;
+            int z = maxZ + 1;
+
+            string layerName = !string.IsNullOrWhiteSpace(name) ? GetUniqueLayerName(name) : GetNextStrokeName(shape);
+
+            var item = StrokeLayerItem.Create(stroke, shape, canvasW, canvasH, z, layerName);
+
+            OverlayCanvas.Children.Add(item.HostCanvas);
+            _layers.Add(item);
+
+            _historyManager.Record(new AddLayerAction(this, item));
+
+            if (autoSelect)
+            {
+                SelectLayerItem(item);
+            }
+            else
+            {
+                DeselectLayer();
+            }
+
+            UpdateLayerListUI();
+            return item;
+        }
+
         private void MainInkCanvas_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
         {
-            _historyManager.Record(new AddStrokeAction(e.Stroke, MainInkCanvas));
+            MainInkCanvas.Strokes.Remove(e.Stroke);
+            AddStrokeLayer(e.Stroke, StrokeShape.Freehand);
         }
 
         private void ApplyPenModeToCanvas()
         {
+            if (_currentImage != null)
+            {
+                UpdateCanvasClips(_currentImage.PixelWidth, _currentImage.PixelHeight);
+            }
             MainInkCanvas.IsHitTestVisible = true;
             MainInkCanvas.UseCustomCursor = true;
             MainInkCanvas.DefaultDrawingAttributes.Color = _currentColor;
@@ -347,6 +391,16 @@ namespace ImageEditor
                 return;
             }
 
+            if (_isPenActive && _currentImage != null)
+            {
+                Point pos = e.GetPosition(MainInkCanvas);
+                if (pos.X < 0 || pos.X > _currentImage.PixelWidth || pos.Y < 0 || pos.Y > _currentImage.PixelHeight)
+                {
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (_isPenActive && _strokeShape != StrokeShape.Freehand && e.LeftButton == MouseButtonState.Pressed)
             {
                 _isDrawingShape = true;
@@ -363,10 +417,12 @@ namespace ImageEditor
                 UpdatePenCursor(e.GetPosition(ViewportGrid));
             }
 
-            if (_isDrawingShape && e.LeftButton == MouseButtonState.Pressed)
+            if (_isDrawingShape && e.LeftButton == MouseButtonState.Pressed && _currentImage != null)
             {
                 Point current = e.GetPosition(MainInkCanvas);
-                RenderShapePreview(_shapeStartPoint, current);
+                double clampedX = Math.Clamp(current.X, 0, _currentImage.PixelWidth);
+                double clampedY = Math.Clamp(current.Y, 0, _currentImage.PixelHeight);
+                RenderShapePreview(_shapeStartPoint, new Point(clampedX, clampedY));
                 e.Handled = true;
             }
         }
@@ -379,116 +435,21 @@ namespace ImageEditor
                 MainInkCanvas.ReleaseMouseCapture();
                 ShapePreviewCanvas.Children.Clear();
                 Point endPoint = e.GetPosition(MainInkCanvas);
+                if (_currentImage != null)
+                {
+                    endPoint = new Point(
+                        Math.Clamp(endPoint.X, 0, _currentImage.PixelWidth),
+                        Math.Clamp(endPoint.Y, 0, _currentImage.PixelHeight));
+                }
 
                 if (Distance(_shapeStartPoint, endPoint) >= 2)
                 {
                     double thickness = GetEffectiveCanvasThickness();
                     var stroke = CreateShapeStroke(_shapeStartPoint, endPoint, _strokeShape, _currentColor, thickness);
-                    MainInkCanvas.Strokes.Add(stroke);
-                    _historyManager.Record(new AddStrokeAction(stroke, MainInkCanvas));
+                    AddStrokeLayer(stroke, _strokeShape);
                 }
                 e.Handled = true;
             }
-        }
-
-        private void RenderShapePreview(Point start, Point end)
-        {
-            ShapePreviewCanvas.Children.Clear();
-            double thickness = GetEffectiveCanvasThickness();
-            var stroke = CreateShapeStroke(start, end, _strokeShape, _currentColor, thickness);
-            var geom = stroke.GetGeometry();
-            var path = new System.Windows.Shapes.Path
-            {
-                Data = geom,
-                Fill = new SolidColorBrush(_currentColor)
-            };
-            ShapePreviewCanvas.Children.Add(path);
-        }
-
-        public static Stroke CreateShapeStroke(Point start, Point end, StrokeShape shape, Color color, double thickness)
-        {
-            var pts = new StylusPointCollection();
-            var attr = new DrawingAttributes
-            {
-                Color = color,
-                Width = thickness,
-                Height = thickness,
-                FitToCurve = false,
-                StylusTip = StylusTip.Ellipse,
-                IgnorePressure = true
-            };
-
-            if (shape == StrokeShape.Line)
-            {
-                pts.Add(new StylusPoint(start.X, start.Y));
-                pts.Add(new StylusPoint(end.X, end.Y));
-            }
-            else if (shape == StrokeShape.Arrow)
-            {
-                Vector dir = end - start;
-                double len = dir.Length;
-                if (len < 2)
-                {
-                    pts.Add(new StylusPoint(start.X, start.Y));
-                    pts.Add(new StylusPoint(end.X, end.Y));
-                }
-                else
-                {
-                    double angle = Math.Atan2(dir.Y, dir.X);
-                    double headLen = Math.Min(thickness * 3.5, len * 0.4);
-                    headLen = Math.Max(headLen, thickness * 2.0);
-                    double barbAngle = Math.PI * 0.82;
-
-                    Point w1 = new Point(end.X + Math.Cos(angle + barbAngle) * headLen,
-                                         end.Y + Math.Sin(angle + barbAngle) * headLen);
-                    Point w2 = new Point(end.X + Math.Cos(angle - barbAngle) * headLen,
-                                         end.Y + Math.Sin(angle - barbAngle) * headLen);
-
-                    pts.Add(new StylusPoint(start.X, start.Y));
-                    pts.Add(new StylusPoint(end.X, end.Y));
-                    pts.Add(new StylusPoint(w1.X, w1.Y));
-                    pts.Add(new StylusPoint(end.X, end.Y));
-                    pts.Add(new StylusPoint(w2.X, w2.Y));
-                }
-            }
-            else if (shape == StrokeShape.DoubleArrow)
-            {
-                Vector dir = end - start;
-                double len = dir.Length;
-                if (len < 2)
-                {
-                    pts.Add(new StylusPoint(start.X, start.Y));
-                    pts.Add(new StylusPoint(end.X, end.Y));
-                }
-                else
-                {
-                    double angle = Math.Atan2(dir.Y, dir.X);
-                    double headLen = Math.Min(thickness * 3.5, len * 0.4);
-                    headLen = Math.Max(headLen, thickness * 2.0);
-                    double barbAngle = Math.PI * 0.82;
-
-                    Point w1 = new Point(end.X + Math.Cos(angle + barbAngle) * headLen,
-                                         end.Y + Math.Sin(angle + barbAngle) * headLen);
-                    Point w2 = new Point(end.X + Math.Cos(angle - barbAngle) * headLen,
-                                         end.Y + Math.Sin(angle - barbAngle) * headLen);
-
-                    Point aw1 = new Point(start.X + Math.Cos(angle + Math.PI - barbAngle) * headLen,
-                                          start.Y + Math.Sin(angle + Math.PI - barbAngle) * headLen);
-                    Point aw2 = new Point(start.X + Math.Cos(angle + Math.PI + barbAngle) * headLen,
-                                          start.Y + Math.Sin(angle + Math.PI + barbAngle) * headLen);
-
-                    pts.Add(new StylusPoint(aw1.X, aw1.Y));
-                    pts.Add(new StylusPoint(start.X, start.Y));
-                    pts.Add(new StylusPoint(aw2.X, aw2.Y));
-                    pts.Add(new StylusPoint(start.X, start.Y));
-                    pts.Add(new StylusPoint(end.X, end.Y));
-                    pts.Add(new StylusPoint(w1.X, w1.Y));
-                    pts.Add(new StylusPoint(end.X, end.Y));
-                    pts.Add(new StylusPoint(w2.X, w2.Y));
-                }
-            }
-
-            return new Stroke(pts, attr);
         }
 
         private BitmapSource GetComposedBitmap()
@@ -497,7 +458,7 @@ namespace ImageEditor
             {
                 return null!;
             }
-            if (MainInkCanvas.Strokes.Count == 0)
+            if (MainInkCanvas.Strokes.Count == 0 && _layers.Count == 0)
             {
                 return _currentImage;
             }
@@ -508,8 +469,33 @@ namespace ImageEditor
             var dv = new DrawingVisual();
             using (var dc = dv.RenderOpen())
             {
+                dc.PushClip(new RectangleGeometry(new Rect(0, 0, w, h)));
+
                 dc.DrawImage(_currentImage, new Rect(0, 0, w, h));
-                MainInkCanvas.Strokes.Draw(dc);
+
+                foreach (var layer in _layers.OrderBy(x => x.ZIndex))
+                {
+                    if (!layer.IsVisible)
+                    {
+                        continue;
+                    }
+                    if (layer.Opacity < 1.0)
+                    {
+                        dc.PushOpacity(layer.Opacity);
+                    }
+                    layer.RenderTo(dc);
+                    if (layer.Opacity < 1.0)
+                    {
+                        dc.Pop();
+                    }
+                }
+
+                if (MainInkCanvas.Strokes.Count > 0)
+                {
+                    MainInkCanvas.Strokes.Draw(dc);
+                }
+
+                dc.Pop();
             }
 
             var rtb = new RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);

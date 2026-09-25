@@ -20,6 +20,10 @@ namespace ImageEditor
         public bool LastResizeMaintainAspectRatio { get; set; } = true;
         public int LastResizeWidth { get; set; }
         public int LastResizeHeight { get; set; }
+        public int LastNewCanvasWidth { get; set; } = 1920;
+        public int LastNewCanvasHeight { get; set; } = 1080;
+        public string LastNewCanvasBg { get; set; } = "White";
+        public string LastNewCanvasCustomColor { get; set; } = "#0078D4";
 
         public static string ConfigFilePath
         {

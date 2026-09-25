@@ -33,6 +33,9 @@ namespace ImageEditor
         // Pending Open Path
         private string? _pendingOpenFilePath;
 
+        // True only when active canvas is created as Blank Paper / New Canvas
+        private bool _isCreatedCanvasMode;
+
         private double CurrentScale => ImageMatrixTransform.Matrix.M11 > 0.0001 ? ImageMatrixTransform.Matrix.M11 : 1.0;
 
         public MainWindow() : this(GetCommandLineInitialFile())
@@ -80,7 +83,11 @@ namespace ImageEditor
                 IgnorePressure = true
             };
             MainInkCanvas.StrokeCollected += MainInkCanvas_StrokeCollected;
-            _historyManager.HistoryChanged += (s, ev) => UpdateHistoryButtonStates();
+            _historyManager.HistoryChanged += (s, ev) =>
+            {
+                UpdateHistoryButtonStates();
+                UpdateLayerListUI();
+            };
             Closing += MainWindow_Closing;
 
             BatchListView.ItemsSource = _batchItems;
@@ -160,6 +167,15 @@ namespace ImageEditor
             if (int.TryParse(ResizeHeightInput?.Text, out int rh) && rh > 0)
             {
                 _appConfig.LastResizeHeight = rh;
+            }
+
+            if (int.TryParse(NewCanvasWidthInput?.Text, out int ncw) && ncw > 0)
+            {
+                _appConfig.LastNewCanvasWidth = ncw;
+            }
+            if (int.TryParse(NewCanvasHeightInput?.Text, out int nch) && nch > 0)
+            {
+                _appConfig.LastNewCanvasHeight = nch;
             }
 
             _appConfig.Save();
@@ -281,6 +297,7 @@ namespace ImageEditor
             CursorText.Visibility = vis;
             CropText.Visibility = vis;
             PenText.Visibility = vis;
+            ImportImageText.Visibility = vis;
             ResizeText.Visibility = vis;
             RotateText.Visibility = vis;
             FlipText.Visibility = vis;
@@ -288,6 +305,7 @@ namespace ImageEditor
             CursorBtn.HorizontalContentAlignment = align;
             CropBtn.HorizontalContentAlignment = align;
             PenBtn.HorizontalContentAlignment = align;
+            ImportImageBtn.HorizontalContentAlignment = align;
             ResizeBtn.HorizontalContentAlignment = align;
             RotateBtn.HorizontalContentAlignment = align;
             FlipBtn.HorizontalContentAlignment = align;
@@ -308,6 +326,7 @@ namespace ImageEditor
             }
             return _historyManager.CanUndo
                 || MainInkCanvas.Strokes.Count > 0
+                || _layers.Count > 0
                 || _isCropping
                 || _savedUnappliedCropRect != null
                 || _currentImage != _originalLoadedImage;
@@ -441,6 +460,8 @@ namespace ImageEditor
                 ShapePreviewCanvas.Width = _currentImage.PixelWidth;
                 ShapePreviewCanvas.Height = _currentImage.PixelHeight;
                 ShapePreviewCanvas.Children.Clear();
+                UpdateCanvasClips(_currentImage.PixelWidth, _currentImage.PixelHeight);
+                ClearOverlayItems();
                 ActivateCursorMode();
                 _savedUnappliedCropRect = null;
                 _historyManager.Clear();
@@ -453,6 +474,7 @@ namespace ImageEditor
                 PlaceholderPanel.Visibility = Visibility.Collapsed;
                 UpdateImageInfoText();
 
+                _isCreatedCanvasMode = false;
                 SetControlsEnabled(true);
                 _isManualZoom = false;
 
@@ -549,7 +571,7 @@ namespace ImageEditor
             }
         }
 
-        public void SetImageAndStrokes(BitmapSource img, Stroke[] strokes)
+        public void SetImageAndLayers(BitmapSource img, Stroke[] strokes, LayerItem[]? layers = null)
         {
             _currentImage = img;
             DisplayImage.Source = _currentImage;
@@ -565,7 +587,10 @@ namespace ImageEditor
             CropCanvas.Width = _currentImage.PixelWidth;
             CropCanvas.Height = _currentImage.PixelHeight;
 
+            UpdateCanvasClips(_currentImage.PixelWidth, _currentImage.PixelHeight);
+
             MainInkCanvas.Strokes.Clear();
+            ClearLayers();
             if (strokes != null)
             {
                 foreach (var s in strokes)
@@ -573,23 +598,38 @@ namespace ImageEditor
                     MainInkCanvas.Strokes.Add(s);
                 }
             }
+            if (layers != null)
+            {
+                foreach (var l in layers)
+                {
+                    InternalAddLayer(l);
+                }
+            }
 
             UpdateImageInfoText();
             _isManualZoom = false;
             FitImageToViewport();
+            UpdateLayerListUI();
         }
+
+        public void SetImageAndStrokes(BitmapSource img, Stroke[] strokes) => SetImageAndLayers(img, strokes);
 
         private void ApplyImageTransform(BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource newImage, Stroke[] newStrokes)
         {
-            SetImageAndStrokes(newImage, newStrokes);
-            _historyManager.Record(new ImageTransformAction(this, oldImage, oldStrokes, newImage, newStrokes));
+            ApplyImageTransform(oldImage, oldStrokes, _layers.ToArray(), newImage, newStrokes, Array.Empty<LayerItem>());
+        }
+
+        private void ApplyImageTransform(BitmapSource oldImage, Stroke[] oldStrokes, LayerItem[] oldLayers, BitmapSource newImage, Stroke[] newStrokes, LayerItem[] newLayers)
+        {
+            SetImageAndLayers(newImage, newStrokes, newLayers);
+            _historyManager.Record(new ImageTransformAction(this, oldImage, oldStrokes, oldLayers, newImage, newStrokes, newLayers));
         }
 
         private (BitmapSource oldImage, Stroke[] oldStrokes, BitmapSource baseSource) GetTransformBase()
         {
             BitmapSource oldImage = _currentImage!;
             Stroke[] oldStrokes = MainInkCanvas.Strokes.ToArray();
-            BitmapSource baseSource = oldStrokes.Length > 0 ? GetComposedBitmap() : oldImage;
+            BitmapSource baseSource = (oldStrokes.Length > 0 || _layers.Count > 0) ? GetComposedBitmap() : oldImage;
             return (oldImage, oldStrokes, baseSource);
         }
 
@@ -855,6 +895,11 @@ namespace ImageEditor
             CursorBtn.IsEnabled = enabled;
             CropBtn.IsEnabled = enabled;
             PenBtn.IsEnabled = enabled;
+            ImportImageBtn.Visibility = (enabled && _isCreatedCanvasMode) ? Visibility.Visible : Visibility.Collapsed;
+            ImportImageBtn.IsEnabled = enabled && _isCreatedCanvasMode;
+            LayersToggleBtn.Visibility = (enabled && _isCreatedCanvasMode) ? Visibility.Visible : Visibility.Collapsed;
+            LayersToggleBtn.IsEnabled = enabled && _isCreatedCanvasMode;
+            RightSidebarBorder.Visibility = (enabled && _isCreatedCanvasMode && _isLayerPanelOpen) ? Visibility.Visible : Visibility.Collapsed;
             ResizeBtn.IsEnabled = enabled;
             RotateBtn.IsEnabled = enabled;
             FlipBtn.IsEnabled = enabled;
@@ -911,6 +956,22 @@ namespace ImageEditor
                 }
             }
 
+            if (NewCanvasModal.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    CloseNewCanvasModal();
+                    e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Enter)
+                {
+                    ApplyNewCanvas_Click(sender, e);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (_isCropping)
             {
                 if (e.Key == Key.Enter)
@@ -927,10 +988,72 @@ namespace ImageEditor
                 }
             }
 
+            // New Canvas shortcut: Ctrl+N
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.N)
+            {
+                NewCanvas_Click(sender, e);
+                e.Handled = true;
+                return;
+            }
+
             if (_currentImage != null)
             {
+                // Rename layer shortcut: F2
+                if (e.Key == Key.F2)
+                {
+                    if (_selectedLayerItem != null && !(FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase))
+                    {
+                        StartRenameLayer(_selectedLayerItem);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                // Delete or Duplicate selected layer (Image or Stroke)
+                if (e.Key == Key.Delete || e.Key == Key.Back)
+                {
+                    if (_selectedLayerItem != null && !(FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase))
+                    {
+                        DeleteSelectedLayer();
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.D)
+                {
+                    if (_selectedLayerItem != null && !(FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase))
+                    {
+                        DuplicateSelectedLayer();
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                // Import Image shortcut: Ctrl+I (only in Blank Canvas mode)
+                if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.I)
+                {
+                    if (_isCreatedCanvasMode && !(FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase))
+                    {
+                        ImportImage_Click(sender, e);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                // Toggle Layer Panel shortcut: Ctrl+L (only in Blank Canvas mode)
+                if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.L)
+                {
+                    if (_isCreatedCanvasMode && !(FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase))
+                    {
+                        LayersToggle_Click(sender, e);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
                 // Mode shortcuts (no modifiers): V (Cursor / Pan), P (Pen), C (Crop)
-                if (Keyboard.Modifiers == ModifierKeys.None)
+                if (Keyboard.Modifiers == ModifierKeys.None && !(FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase))
                 {
                     if (e.Key == Key.V)
                     {
@@ -964,6 +1087,10 @@ namespace ImageEditor
                 if ((Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.Z) ||
                     (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.Y))
                 {
+                    if (FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase)
+                    {
+                        return;
+                    }
                     Redo_Click(sender, e);
                     e.Handled = true;
                     return;
@@ -972,6 +1099,10 @@ namespace ImageEditor
                 // Undo shortcut: Ctrl+Z
                 if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.Z)
                 {
+                    if (FocusManager.GetFocusedElement(this) is System.Windows.Controls.Primitives.TextBoxBase)
+                    {
+                        return;
+                    }
                     Undo_Click(sender, e);
                     e.Handled = true;
                     return;
@@ -1014,12 +1145,26 @@ namespace ImageEditor
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 var files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                if (files != null && files.Length > 0 && File.Exists(files[0]))
+                if (files != null && files.Length > 0)
                 {
-                    string ext = System.IO.Path.GetExtension(files[0]);
-                    if (SupportedBatchExtensions.Contains(ext))
+                    if (_isCreatedCanvasMode && _currentImage != null)
                     {
-                        RequestOpenImage(files[0]);
+                        Point dropPos = e.GetPosition(OverlayCanvas);
+                        foreach (var file in files)
+                        {
+                            if (File.Exists(file) && SupportedBatchExtensions.Contains(System.IO.Path.GetExtension(file)))
+                            {
+                                AddOverlayImageFromFile(file, dropPos);
+                            }
+                        }
+                    }
+                    else if (File.Exists(files[0]))
+                    {
+                        string ext = System.IO.Path.GetExtension(files[0]);
+                        if (SupportedBatchExtensions.Contains(ext))
+                        {
+                            RequestOpenImage(files[0]);
+                        }
                     }
                 }
             }

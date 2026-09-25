@@ -14,6 +14,114 @@
         KeyDown="Window_KeyDown"
         Icon="icon.ico">
 
+    <ui:FluentWindow.Resources>
+        <DrawingBrush x:Key="CheckerboardBrush" Viewport="0,0,16,16" ViewportUnits="Absolute" TileMode="Tile">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#181818">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="0,0,16,16" />
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#242424">
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <RectangleGeometry Rect="0,0,8,8" />
+                                <RectangleGeometry Rect="8,8,8,8" />
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+
+        <!-- Spectrum Rainbow Gradient -->
+        <LinearGradientBrush x:Key="RainbowHueGradientBrush" StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="#FF0000" Offset="0.00"/>
+            <GradientStop Color="#FFFF00" Offset="0.17"/>
+            <GradientStop Color="#00FF00" Offset="0.33"/>
+            <GradientStop Color="#00FFFF" Offset="0.50"/>
+            <GradientStop Color="#0000FF" Offset="0.67"/>
+            <GradientStop Color="#FF00FF" Offset="0.83"/>
+            <GradientStop Color="#FF0000" Offset="1.00"/>
+        </LinearGradientBrush>
+
+        <!-- Transparent Click Track Buttons for Slider -->
+        <Style x:Key="SliderInvisibleRepeatButton" TargetType="{x:Type RepeatButton}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Rectangle Fill="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Floating Color Slider Thumb -->
+        <Style x:Key="ModernColorSliderThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Grid Width="26" Height="26">
+                            <!-- Outer Floating Shadow -->
+                            <Ellipse Fill="#FFFFFF">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect BlurRadius="6" ShadowDepth="1.5" Direction="270" Opacity="0.55"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <!-- Contrast Rim for white/bright backgrounds -->
+                            <Ellipse Stroke="#44000000" StrokeThickness="1"/>
+                            <!-- Inner Ring Accent -->
+                            <Ellipse Width="18" Height="18" Stroke="#E0E0E0" StrokeThickness="1" Fill="#FFFFFF"/>
+                            <!-- Center Accent Pip -->
+                            <Ellipse Width="10" Height="10" Fill="{DynamicResource AccentFillColorDefaultBrush}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Unified Modern Color Slider Style (Gradient Track + Direct Overlay Thumb) -->
+        <Style x:Key="ModernColorSliderStyle" TargetType="{x:Type Slider}">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="IsMoveToPointEnabled" Value="True"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Slider}">
+                        <Grid VerticalAlignment="Center">
+                            <!-- Embedded Gradient Track -->
+                            <Border Height="20" CornerRadius="10" ClipToBounds="True"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="#38FFFFFF" BorderThickness="1"
+                                    VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track" VerticalAlignment="Center">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource SliderInvisibleRepeatButton}" Command="{x:Static Slider.DecreaseLarge}"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource SliderInvisibleRepeatButton}" Command="{x:Static Slider.IncreaseLarge}"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ModernColorSliderThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </ui:FluentWindow.Resources>
+
+
     <Grid>
         <Grid.RowDefinitions>
             <!-- Title Bar -->
@@ -42,6 +150,7 @@
                 Padding="16,8">
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:Button x:Name="NewCanvasBtn" Content="New Canvas" Icon="{ui:SymbolIcon DocumentAdd24}" Click="NewCanvas_Click" Margin="0,0,8,0"/>
                     <ui:Button Content="Open Image" Icon="{ui:SymbolIcon FolderOpen24}" Click="Open_Click" Appearance="Primary" Margin="0,0,8,0"/>
                     <ui:Button x:Name="SaveBtn" Content="Save" Icon="{ui:SymbolIcon Save24}" Click="Save_Click" IsEnabled="False" Margin="0,0,8,0"/>
                     <!-- Compress Dropdown Button (Option B) -->
@@ -211,17 +320,19 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <ui:Button x:Name="LayersToggleBtn" Icon="{ui:SymbolIcon Layer24}" ToolTip="Toggle Layers Panel (Ctrl+L)" Click="LayersToggle_Click" Margin="0,0,14,0" Visibility="Collapsed"/>
                     <TextBlock x:Name="ZoomLevelText" Text="" Foreground="{DynamicResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,16,0" FontSize="12"/>
                     <TextBlock x:Name="FileNameText" Text="" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" FontSize="12"/>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Main Workspace: Left Sidebar + Center Viewport -->
+        <!-- Main Workspace: Left Sidebar + Center Viewport + Right Layer Panel -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <!-- Collapsible Left Sidebar -->
@@ -304,6 +415,22 @@
                                             BorderBrush="#202020" BorderThickness="1"/>
                                 </Grid>
                                 <TextBlock x:Name="PenText" Text="Pen" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
+                            </StackPanel>
+                        </ui:Button>
+
+                        <!-- Import Image Tool -->
+                        <ui:Button x:Name="ImportImageBtn"
+                                   HorizontalAlignment="Stretch"
+                                   HorizontalContentAlignment="Left"
+                                   Padding="8,7"
+                                   Margin="0,0,0,6"
+                                   Visibility="Collapsed"
+                                   IsEnabled="False"
+                                   ToolTip="Import Image onto Canvas (Ctrl+I)"
+                                   Click="ImportImage_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ImageAdd24" FontSize="18"/>
+                                <TextBlock x:Name="ImportImageText" Text="Import Image" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="13"/>
                             </StackPanel>
                         </ui:Button>
                     </StackPanel>
@@ -516,8 +643,11 @@
                 <StackPanel x:Name="PlaceholderPanel" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <ui:SymbolIcon Symbol="ImageAdd24" FontSize="48" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,0,0,12"/>
                     <TextBlock Text="No image loaded" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                    <TextBlock Text="Click 'Open Image' or drag and drop an image here" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-                    <ui:Button Content="Choose Image..." Icon="{ui:SymbolIcon FolderOpen24}" Click="Open_Click" Appearance="Primary" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Create a blank canvas, open an image, or drag and drop a file here" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <ui:Button Content="New Blank Paper" Icon="{ui:SymbolIcon DocumentAdd24}" Click="NewCanvas_Click" Appearance="Primary" Margin="0,0,10,0"/>
+                        <ui:Button Content="Choose Image..." Icon="{ui:SymbolIcon FolderOpen24}" Click="Open_Click" Appearance="Secondary"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Canvas-based unconstrained viewport (prevents WPF Grid layout clipping!) -->
@@ -525,20 +655,50 @@
                     <!-- Scalable & Pannable Image + Crop Container -->
                     <Canvas x:Name="ImageContainer"
                             Visibility="Collapsed"
+                            ClipToBounds="True"
                             RenderTransformOrigin="0,0">
 
                         <Canvas.RenderTransform>
                             <MatrixTransform x:Name="ImageMatrixTransform"/>
                         </Canvas.RenderTransform>
 
+                        <!-- Checkerboard pattern backing for transparent images/canvas -->
+                        <Rectangle x:Name="CanvasBackingRect"
+                                   Width="{Binding Width, ElementName=ImageContainer}"
+                                   Height="{Binding Height, ElementName=ImageContainer}"
+                                   Fill="{StaticResource CheckerboardBrush}"
+                                   IsHitTestVisible="False"/>
+
                         <!-- Loaded Image -->
                         <Image x:Name="DisplayImage"
                                Stretch="Fill"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
 
+                        <!-- Canvas outline / border -->
+                        <Rectangle x:Name="CanvasBoundaryBorder"
+                                   Width="{Binding Width, ElementName=ImageContainer}"
+                                   Height="{Binding Height, ElementName=ImageContainer}"
+                                   Stroke="#40FFFFFF"
+                                   StrokeThickness="1"
+                                   IsHitTestVisible="False"/>
+
+                        <!-- Interactive Overlay Canvas for Draggable and Stackable Images -->
+                        <Canvas x:Name="OverlayCanvas"
+                                Width="{Binding Width, ElementName=ImageContainer}"
+                                Height="{Binding Height, ElementName=ImageContainer}"
+                                Background="Transparent"
+                                ClipToBounds="True"
+                                MouseDown="OverlayCanvas_MouseDown"
+                                MouseMove="OverlayCanvas_MouseMove"
+                                MouseUp="OverlayCanvas_MouseUp"
+                                LostMouseCapture="OverlayCanvas_LostMouseCapture"/>
+
                         <!-- Interactive InkCanvas for Pen & Annotation -->
                         <InkCanvas x:Name="MainInkCanvas"
+                                   Width="{Binding Width, ElementName=ImageContainer}"
+                                   Height="{Binding Height, ElementName=ImageContainer}"
                                    Background="Transparent"
+                                   ClipToBounds="True"
                                    IsHitTestVisible="False"
                                    RenderTransformOrigin="0,0"
                                    PreviewMouseDown="MainInkCanvas_PreviewMouseDown"
@@ -547,6 +707,10 @@
 
                         <!-- Shape Preview Canvas (temporary live line/arrow preview) -->
                         <Canvas x:Name="ShapePreviewCanvas"
+                                Width="{Binding Width, ElementName=ImageContainer}"
+                                Height="{Binding Height, ElementName=ImageContainer}"
+                                Background="Transparent"
+                                ClipToBounds="True"
                                 IsHitTestVisible="False"/>
 
                         <!-- Interactive Crop Canvas (Strictly bounded to image pixels) -->
@@ -611,6 +775,77 @@
                         </Grid>
                     </Canvas>
                 </Canvas>
+            </Grid>
+        </Border>
+
+        <!-- Collapsible Right Layer Panel -->
+        <Border x:Name="RightSidebarBorder" Grid.Column="2"
+                Width="230"
+                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1,0,0,0"
+                Padding="10,8"
+                Visibility="Collapsed">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- Header -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Opacity Slider -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Action Buttons Bar -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Merge Button -->
+                    <RowDefinition Height="Auto"/>
+                    <!-- Layers List -->
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Layer20" FontSize="16" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,8,0"/>
+                        <TextBlock Text="Layers" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
+                        <Border Background="#33FFFFFF" CornerRadius="8" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                            <TextBlock x:Name="LayersCountBadge" Text="0" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentFillColorDefaultBrush}"/>
+                        </Border>
+                    </StackPanel>
+                    <ui:Button Icon="{ui:SymbolIcon Dismiss16}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseLayerPanel_Click" Padding="4" ToolTip="Close Layer Panel"/>
+                </Grid>
+
+                <!-- Opacity Controls Card -->
+                <Border Grid.Row="1" Background="#161616" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,10">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,4">
+                            <TextBlock Text="Opacity" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="LayerOpacityText" Text="100%" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right" Foreground="{DynamicResource AccentFillColorDefaultBrush}"/>
+                        </Grid>
+                        <Slider x:Name="LayerOpacitySlider" Minimum="0" Maximum="100" Value="100" IsSnapToTickEnabled="True" TickFrequency="1" ValueChanged="LayerOpacitySlider_ValueChanged" PreviewMouseDown="LayerOpacitySlider_PreviewMouseDown" PreviewMouseUp="LayerOpacitySlider_PreviewMouseUp"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Quick Action Buttons Bar (Front, Up, Down, Back, Rename, Duplicate, Delete) -->
+                <Border Grid.Row="2" Background="#161616" BorderBrush="#2A2A2A" BorderThickness="1" CornerRadius="6" Padding="4,4" Margin="0,0,0,10">
+                    <UniformGrid Columns="7">
+                        <ui:Button Icon="{ui:SymbolIcon ChevronDoubleUp16}" ToolTip="Bring to Front" Click="LayerFront_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                        <ui:Button Icon="{ui:SymbolIcon ChevronUp16}" ToolTip="Move Layer Up" Click="LayerMoveUp_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                        <ui:Button Icon="{ui:SymbolIcon ChevronDown16}" ToolTip="Move Layer Down" Click="LayerMoveDown_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                        <ui:Button Icon="{ui:SymbolIcon ChevronDoubleDown16}" ToolTip="Send to Back" Click="LayerBack_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                        <ui:Button Icon="{ui:SymbolIcon Rename20}" ToolTip="Rename Layer (F2)" Click="LayerRename_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                        <ui:Button Icon="{ui:SymbolIcon Copy16}" ToolTip="Duplicate Layer (Ctrl+D)" Click="LayerDuplicate_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                        <ui:Button Icon="{ui:SymbolIcon Delete16}" ToolTip="Delete Layer (Del)" Click="LayerDelete_Click" Padding="2,4" HorizontalAlignment="Stretch" Appearance="Transparent"/>
+                    </UniformGrid>
+                </Border>
+
+                <!-- Merge Stroke Layers Button (Visible when 2+ pen stroke layers selected) -->
+                <ui:Button x:Name="LayerMergeBtn" Grid.Row="3" Icon="{ui:SymbolIcon Merge20}" Content="Merge" Appearance="Primary" HorizontalAlignment="Stretch" Margin="0,0,0,10" Padding="6,7" FontSize="12" FontWeight="SemiBold" ToolTip="Merge Selected Pen Layers (Ctrl+Click to multi-select)" Click="LayerMerge_Click" Visibility="Collapsed"/>
+
+                <!-- Split Merged Pen Layer Button (Visible when a merged pen layer is selected) -->
+                <ui:Button x:Name="LayerSplitBtn" Grid.Row="3" Icon="{ui:SymbolIcon ArrowSplit20}" Content="Split Layer" Appearance="Secondary" HorizontalAlignment="Stretch" Margin="0,0,0,10" Padding="6,7" FontSize="12" FontWeight="SemiBold" ToolTip="Split Merged Pen Layer back into original layers" Click="LayerSplit_Click" Visibility="Collapsed"/>
+
+                <!-- Scrollable Layers Stack -->
+                <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="LayersListPanel"/>
+                </ScrollViewer>
             </Grid>
         </Border>
     </Grid>
@@ -1177,5 +1412,378 @@
                 </StackPanel>
             </Border>
         </Grid>
+
+        <!-- New Canvas Modal Dialog Overlay -->
+        <Grid x:Name="NewCanvasModal" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" Background="#B2000000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="500" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                    CornerRadius="10" Padding="24,20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.6" Direction="270"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,14">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="DocumentAdd24" FontSize="20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Text="New Blank Canvas" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseNewCanvasModal_Click" Padding="6" ToolTip="Cancel (Esc)"/>
+                    </Grid>
+
+                    <!-- Quick Preset Dimensions -->
+                    <TextBlock Text="Preset Dimensions" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <UniformGrid Columns="4" Margin="0,0,0,14">
+                        <ui:Button Content="1920 × 1080" ToolTip="Full HD (16:9)" Click="NewCanvasPreset_Click" Tag="1920x1080" Margin="0,0,4,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                        <ui:Button Content="1280 × 720" ToolTip="HD (16:9)" Click="NewCanvasPreset_Click" Tag="1280x720" Margin="2,0,2,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                        <ui:Button Content="1080 × 1080" ToolTip="Square (1:1)" Click="NewCanvasPreset_Click" Tag="1080x1080" Margin="2,0,2,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                        <ui:Button Content="Fit Window" ToolTip="Viewport Size" Click="NewCanvasPreset_Click" Tag="FitWindow" Margin="4,0,0,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                    </UniformGrid>
+
+                    <!-- Dimension Inputs Grid -->
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Width Column -->
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Width" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <TextBox x:Name="NewCanvasWidthInput" Text="1920" Padding="8,6" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox"/>
+                                <TextBlock Text="px" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Height Column -->
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Height" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <TextBox x:Name="NewCanvasHeightInput" Text="1080" Padding="8,6" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox"/>
+                                <TextBlock Text="px" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Background Color Selection -->
+                    <TextBlock Text="Background Color" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8"/>
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <RadioButton x:Name="NewCanvasBgWhiteRadio" Grid.Column="0" Content="White" GroupName="NewCanvasBgColor" IsChecked="True" Checked="NewCanvasBgRadio_Checked" HorizontalAlignment="Left"/>
+                        <RadioButton x:Name="NewCanvasBgTransparentRadio" Grid.Column="1" Content="Transparent" GroupName="NewCanvasBgColor" Checked="NewCanvasBgRadio_Checked" HorizontalAlignment="Left"/>
+                        <RadioButton x:Name="NewCanvasBgDarkRadio" Grid.Column="2" Content="Dark" GroupName="NewCanvasBgColor" Checked="NewCanvasBgRadio_Checked" HorizontalAlignment="Left"/>
+                        <RadioButton x:Name="NewCanvasBgCustomRadio" Grid.Column="3" Content="Custom" GroupName="NewCanvasBgColor" Checked="NewCanvasBgRadio_Checked" HorizontalAlignment="Left"/>
+                    </Grid>
+
+                    <!-- Custom Color Configuration Panel (Visible only when Custom is selected) -->
+                    <Border x:Name="NewCanvasCustomColorPanel" Visibility="Collapsed" Background="{DynamicResource ControlFillColorSecondaryBrush}" CornerRadius="8" Padding="14,12" Margin="0,0,0,16" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <!-- Row 1: Preview, Hex Code, and System Color Dialog Button -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Color Preview Box -->
+                                <Border x:Name="NewCanvasCustomColorPreview" Width="36" Height="36" CornerRadius="6" Background="#0078D4" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,12,0" VerticalAlignment="Bottom" ToolTip="Selected Background Color"/>
+
+                                <!-- Hex Code Input -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="0,0,10,0">
+                                    <TextBlock Text="Hex Code" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="NewCanvasCustomHexInput" Text="#0078D4" MaxLength="9" Padding="8,5" VerticalContentAlignment="Center" TextChanged="NewCanvasCustomHexInput_TextChanged"/>
+                                </StackPanel>
+
+                                <!-- Pick Any Color Dialog Button -->
+                                <ui:Button Grid.Column="2" Content="Pick Color..." Icon="{ui:SymbolIcon Color24}" Appearance="Secondary" VerticalAlignment="Bottom" Padding="12,6" Click="OpenColorPickerDlg_Click" ToolTip="Open Windows color picker dialog"/>
+                            </Grid>
+
+                            <!-- Row 2: RGB Numeric Inputs -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Red (0-255)" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="NewCanvasCustomRInput" Text="0" MaxLength="3" Padding="6,4" TextAlignment="Center" TextChanged="NewCanvasCustomRgbInput_TextChanged" PreviewTextInput="NumberValidationTextBox"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Green (0-255)" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="NewCanvasCustomGInput" Text="120" MaxLength="3" Padding="6,4" TextAlignment="Center" TextChanged="NewCanvasCustomRgbInput_TextChanged" PreviewTextInput="NumberValidationTextBox"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Blue (0-255)" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="NewCanvasCustomBInput" Text="212" MaxLength="3" Padding="6,4" TextAlignment="Center" TextChanged="NewCanvasCustomRgbInput_TextChanged" PreviewTextInput="NumberValidationTextBox"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Row 3: Hue Spectrum Slider -->
+                            <StackPanel Margin="0,0,0,12">
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock Text="Color Spectrum (Hue)" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Left"/>
+                                    <TextBlock x:Name="NewCanvasHueValueText" Text="206°" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="NewCanvasHueSlider" Style="{StaticResource ModernColorSliderStyle}" Background="{StaticResource RainbowHueGradientBrush}" Minimum="0" Maximum="360" Value="206" ValueChanged="NewCanvasHueSlider_ValueChanged"/>
+                            </StackPanel>
+
+                            <!-- Row 4: Brightness Slider -->
+                            <StackPanel Margin="0,0,0,4">
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock Text="Brightness" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Left"/>
+                                    <TextBlock x:Name="NewCanvasLightnessValueText" Text="42%" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="NewCanvasLightnessSlider" Style="{StaticResource ModernColorSliderStyle}" Minimum="0" Maximum="100" Value="42" ValueChanged="NewCanvasLightnessSlider_ValueChanged">
+                                    <Slider.Background>
+                                        <LinearGradientBrush x:Name="NewCanvasLightnessGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+                                            <GradientStop Color="#000000" Offset="0.0"/>
+                                            <GradientStop x:Name="NewCanvasLightnessMidStop" Color="#0078D4" Offset="0.5"/>
+                                            <GradientStop Color="#FFFFFF" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Slider.Background>
+                                </Slider>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action Buttons Footer -->
+                    <Grid>
+                        <ui:Button Content="Cancel" Appearance="Secondary" HorizontalAlignment="Left" Click="CloseNewCanvasModal_Click" Padding="18,7"/>
+                        <ui:Button x:Name="ApplyNewCanvasBtn" Content="Create Canvas" Icon="{ui:SymbolIcon Checkmark24}" Appearance="Primary" HorizontalAlignment="Right" Click="ApplyNewCanvas_Click" Padding="18,7"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Canvas Dimensions Modal (Edit Base Layer Dimensions: Shrink / Expand) -->
+        <Grid x:Name="CanvasDimensionsModal" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" Background="#B2000000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="480" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                    CornerRadius="10" Padding="24,20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.6" Direction="270"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,14">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="ArrowExpand24" FontSize="20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Text="Canvas Dimensions" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseCanvasDimensionsModal_Click" Padding="6" ToolTip="Cancel (Esc)"/>
+                    </Grid>
+
+                    <!-- Current Size Badge -->
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,12">
+                        <Grid>
+                            <TextBlock Text="Current Dimensions" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="CanvasDimensionsCurrentText" Text="1920 × 1080 px" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Quick Preset Dimensions -->
+                    <TextBlock Text="Quick Presets" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <UniformGrid Columns="4" Margin="0,0,0,12">
+                        <ui:Button Content="1920 × 1080" ToolTip="Full HD" Click="CanvasDimensionsPreset_Click" Tag="1920x1080" Margin="0,0,4,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                        <ui:Button Content="1280 × 720" ToolTip="HD" Click="CanvasDimensionsPreset_Click" Tag="1280x720" Margin="2,0,2,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                        <ui:Button Content="1080 × 1080" ToolTip="Square" Click="CanvasDimensionsPreset_Click" Tag="1080x1080" Margin="2,0,2,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                        <ui:Button Content="Fit Window" ToolTip="Viewport Size" Click="CanvasDimensionsPreset_Click" Tag="FitWindow" Margin="4,0,0,0" Padding="4,6" HorizontalAlignment="Stretch"/>
+                    </UniformGrid>
+
+                    <!-- Dimension Inputs Grid -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Width Column -->
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Width" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <TextBox x:Name="CanvasDimensionsWidthInput" Text="1920" Padding="8,6" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox" TextChanged="CanvasDimensionsWidthInput_TextChanged"/>
+                                <TextBlock Text="px" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- Height Column -->
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Height" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <TextBox x:Name="CanvasDimensionsHeightInput" Text="1080" Padding="8,6" VerticalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox" TextChanged="CanvasDimensionsHeightInput_TextChanged"/>
+                                <TextBlock Text="px" Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Aspect Ratio Checkbox -->
+                    <CheckBox x:Name="CanvasDimensionsAspectCheck" Content="Maintain aspect ratio" IsChecked="True" Click="CanvasDimensionsAspectCheck_Click" Margin="0,0,0,12"/>
+
+                    <!-- Resize Behavior Mode -->
+                    <TextBlock Text="Resize Mode" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,6"/>
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,16">
+                        <StackPanel>
+                            <RadioButton x:Name="CanvasDimensionsModeCanvasRadio" Content="Canvas Size (Expand / Crop canvas boundaries)" GroupName="CanvasDimensionsMode" IsChecked="True" Margin="0,0,0,6" ToolTip="Expand canvas area with background color or crop without stretching content"/>
+                            <RadioButton x:Name="CanvasDimensionsModeScaleRadio" Content="Scale Content (Proportionally resize image &amp; layers)" GroupName="CanvasDimensionsMode" ToolTip="Stretch or shrink the base image and all stroke layers to fit"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action Buttons Footer -->
+                    <Grid>
+                        <ui:Button Content="Cancel" Appearance="Secondary" HorizontalAlignment="Left" Click="CloseCanvasDimensionsModal_Click" Padding="18,7"/>
+                        <ui:Button x:Name="ApplyCanvasDimensionsBtn" Content="Apply Dimensions" Icon="{ui:SymbolIcon Checkmark24}" Appearance="Primary" HorizontalAlignment="Right" Click="ApplyCanvasDimensions_Click" Padding="18,7"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Change Background Color Modal -->
+        <Grid x:Name="ChangeBgColorModal" Grid.Row="1" Grid.RowSpan="3" Visibility="Collapsed" Background="#B2000000">
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Width="500" Background="#202020" BorderBrush="#383838" BorderThickness="1"
+                    CornerRadius="10" Padding="24,20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.6" Direction="270"/>
+                </Border.Effect>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,14">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Color24" FontSize="20" Foreground="{DynamicResource AccentFillColorDefaultBrush}" Margin="0,0,10,0"/>
+                            <TextBlock Text="Change Background Color" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <ui:Button Icon="{ui:SymbolIcon Dismiss20}" Appearance="Transparent" HorizontalAlignment="Right" Click="CloseChangeBgColorModal_Click" Padding="6" ToolTip="Cancel (Esc)"/>
+                    </Grid>
+
+                    <!-- Current Background Info Badge -->
+                    <Border Background="#161616" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="12,8" Margin="0,0,0,14">
+                        <Grid>
+                            <TextBlock Text="Base Layer" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Border x:Name="ChangeBgCurrentColorTile" Width="16" Height="16" CornerRadius="4" Background="#FFFFFF" BorderBrush="#555555" BorderThickness="1" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ChangeBgCurrentColorText" Text="White" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Background Color Selection Radio Grid -->
+                    <TextBlock Text="New Background Color" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,8"/>
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <RadioButton x:Name="ChangeBgWhiteRadio" Grid.Column="0" Content="White" GroupName="ChangeBgColorGroup" IsChecked="True" Checked="ChangeBgRadio_Checked" HorizontalAlignment="Left"/>
+                        <RadioButton x:Name="ChangeBgTransparentRadio" Grid.Column="1" Content="Transparent" GroupName="ChangeBgColorGroup" Checked="ChangeBgRadio_Checked" HorizontalAlignment="Left"/>
+                        <RadioButton x:Name="ChangeBgDarkRadio" Grid.Column="2" Content="Dark" GroupName="ChangeBgColorGroup" Checked="ChangeBgRadio_Checked" HorizontalAlignment="Left"/>
+                        <RadioButton x:Name="ChangeBgCustomRadio" Grid.Column="3" Content="Custom" GroupName="ChangeBgColorGroup" Checked="ChangeBgRadio_Checked" HorizontalAlignment="Left"/>
+                    </Grid>
+
+                    <!-- Custom Color Configuration Panel (Visible only when Custom is selected) -->
+                    <Border x:Name="ChangeBgCustomColorPanel" Visibility="Collapsed" Background="{DynamicResource ControlFillColorSecondaryBrush}" CornerRadius="8" Padding="14,12" Margin="0,0,0,16" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <!-- Row 1: Preview, Hex Code, and System Color Dialog Button -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Color Preview Box -->
+                                <Border x:Name="ChangeBgCustomColorPreview" Width="36" Height="36" CornerRadius="6" Background="#0078D4" BorderBrush="#55FFFFFF" BorderThickness="1" Margin="0,0,12,0" VerticalAlignment="Bottom" ToolTip="Selected Background Color"/>
+
+                                <!-- Hex Code Input -->
+                                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="0,0,10,0">
+                                    <TextBlock Text="Hex Code" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="ChangeBgCustomHexInput" Text="#0078D4" MaxLength="9" Padding="8,5" VerticalContentAlignment="Center" TextChanged="ChangeBgCustomHexInput_TextChanged"/>
+                                </StackPanel>
+
+                                <!-- Pick Any Color Dialog Button -->
+                                <ui:Button Grid.Column="2" Content="Pick Color..." Icon="{ui:SymbolIcon Color24}" Appearance="Secondary" VerticalAlignment="Bottom" Padding="12,6" Click="OpenChangeBgColorPickerDlg_Click" ToolTip="Open Windows color picker dialog"/>
+                            </Grid>
+
+                            <!-- Row 2: RGB Numeric Inputs -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Red (0-255)" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="ChangeBgCustomRInput" Text="0" MaxLength="3" Padding="6,4" TextAlignment="Center" TextChanged="ChangeBgCustomRgbInput_TextChanged" PreviewTextInput="NumberValidationTextBox"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Green (0-255)" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="ChangeBgCustomGInput" Text="120" MaxLength="3" Padding="6,4" TextAlignment="Center" TextChanged="ChangeBgCustomRgbInput_TextChanged" PreviewTextInput="NumberValidationTextBox"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Blue (0-255)" FontSize="10" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,3"/>
+                                    <TextBox x:Name="ChangeBgCustomBInput" Text="212" MaxLength="3" Padding="6,4" TextAlignment="Center" TextChanged="ChangeBgCustomRgbInput_TextChanged" PreviewTextInput="NumberValidationTextBox"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Row 3: Hue Spectrum Slider -->
+                            <StackPanel Margin="0,0,0,12">
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock Text="Color Spectrum (Hue)" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Left"/>
+                                    <TextBlock x:Name="ChangeBgHueValueText" Text="206°" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="ChangeBgHueSlider" Style="{StaticResource ModernColorSliderStyle}" Background="{StaticResource RainbowHueGradientBrush}" Minimum="0" Maximum="360" Value="206" ValueChanged="ChangeBgHueSlider_ValueChanged"/>
+                            </StackPanel>
+
+                            <!-- Row 4: Brightness Slider -->
+                            <StackPanel Margin="0,0,0,4">
+                                <Grid Margin="0,0,0,5">
+                                    <TextBlock Text="Brightness" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Left"/>
+                                    <TextBlock x:Name="ChangeBgLightnessValueText" Text="42%" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Right"/>
+                                </Grid>
+                                <Slider x:Name="ChangeBgLightnessSlider" Style="{StaticResource ModernColorSliderStyle}" Minimum="0" Maximum="100" Value="42" ValueChanged="ChangeBgLightnessSlider_ValueChanged">
+                                    <Slider.Background>
+                                        <LinearGradientBrush x:Name="ChangeBgLightnessGradient" StartPoint="0,0.5" EndPoint="1,0.5">
+                                            <GradientStop Color="#000000" Offset="0.0"/>
+                                            <GradientStop x:Name="ChangeBgLightnessMidStop" Color="#0078D4" Offset="0.5"/>
+                                            <GradientStop Color="#FFFFFF" Offset="1.0"/>
+                                        </LinearGradientBrush>
+                                    </Slider.Background>
+                                </Slider>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action Buttons Footer -->
+                    <Grid>
+                        <ui:Button Content="Cancel" Appearance="Secondary" HorizontalAlignment="Left" Click="CloseChangeBgColorModal_Click" Padding="18,7"/>
+                        <ui:Button x:Name="ApplyChangeBgColorBtn" Content="Apply Color" Icon="{ui:SymbolIcon Checkmark24}" Appearance="Primary" HorizontalAlignment="Right" Click="ApplyChangeBgColor_Click" Padding="18,7"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </ui:FluentWindow>
+
