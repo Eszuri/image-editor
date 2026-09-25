@@ -175,10 +175,6 @@ namespace ImageEditor
             UpdateLayerSelectionVisuals();
         }
 
-        public void SelectOverlayItem(OverlayImageItem item) => SelectLayerItem(item);
-
-        public void DeselectOverlay() => DeselectLayer();
-
         public void DeselectLayer()
         {
             foreach (var l in _selectedLayers)

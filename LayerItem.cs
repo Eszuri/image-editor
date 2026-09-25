@@ -12,7 +12,6 @@ namespace ImageEditor
 
     public abstract class LayerItem
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
         public string Name { get; set; } = "Layer";
         public abstract LayerType Type { get; }
         public int ZIndex { get; set; }

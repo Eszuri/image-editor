@@ -71,15 +71,9 @@ namespace ImageEditor
             CanvasDimensionsWidthInput.SelectAll();
         }
 
-        public void CloseCanvasDimensionsModal()
-        {
-            CanvasDimensionsModal.Visibility = Visibility.Collapsed;
-        }
+        public void CloseCanvasDimensionsModal() => CanvasDimensionsModal.Visibility = Visibility.Collapsed;
 
-        private void CloseCanvasDimensionsModal_Click(object sender, RoutedEventArgs e)
-        {
-            CloseCanvasDimensionsModal();
-        }
+        private void CloseCanvasDimensionsModal_Click(object sender, RoutedEventArgs e) => CloseCanvasDimensionsModal();
 
         private void CanvasDimensionsPreset_Click(object sender, RoutedEventArgs e)
         {
@@ -330,20 +324,11 @@ namespace ImageEditor
             ChangeBgColorModal.Visibility = Visibility.Visible;
         }
 
-        public void CloseChangeBgColorModal()
-        {
-            ChangeBgColorModal.Visibility = Visibility.Collapsed;
-        }
+        public void CloseChangeBgColorModal() => ChangeBgColorModal.Visibility = Visibility.Collapsed;
 
-        private void CloseChangeBgColorModal_Click(object sender, RoutedEventArgs e)
-        {
-            CloseChangeBgColorModal();
-        }
+        private void CloseChangeBgColorModal_Click(object sender, RoutedEventArgs e) => CloseChangeBgColorModal();
 
-        private void ChangeBgRadio_Checked(object sender, RoutedEventArgs e)
-        {
-            UpdateChangeBgCustomPanelVisibility();
-        }
+        private void ChangeBgRadio_Checked(object sender, RoutedEventArgs e) => UpdateChangeBgCustomPanelVisibility();
 
         private void UpdateChangeBgCustomPanelVisibility()
         {
@@ -483,36 +468,11 @@ namespace ImageEditor
 
         private void OpenChangeBgColorPickerDlg_Click(object sender, RoutedEventArgs e)
         {
-            var helper = new System.Windows.Interop.WindowInteropHelper(this);
-            var cc = new CHOOSECOLOR();
-            cc.lStructSize = Marshal.SizeOf(typeof(CHOOSECOLOR));
-            cc.hwndOwner = helper.Handle;
-
             string hex = ChangeBgCustomHexInput?.Text.Trim() ?? "";
-            if (TryParseHexColor(hex, out Color current))
+            TryParseHexColor(hex, out Color current);
+            if (ShowNativeColorPicker(current, out Color chosen))
             {
-                cc.rgbResult = current.R | (current.G << 8) | (current.B << 16);
-            }
-
-            GCHandle handle = GCHandle.Alloc(s_customColors, GCHandleType.Pinned);
-            try
-            {
-                cc.lpCustColors = handle.AddrOfPinnedObject();
-                cc.Flags = CC_RGBINIT | CC_FULLOPEN | CC_ANYCOLOR;
-
-                if (ChooseColor(ref cc))
-                {
-                    byte r = (byte)(cc.rgbResult & 0xFF);
-                    byte g = (byte)((cc.rgbResult >> 8) & 0xFF);
-                    byte b = (byte)((cc.rgbResult >> 16) & 0xFF);
-                    Color chosen = Color.FromRgb(r, g, b);
-                    string chosenHex = $"#{chosen.R:X2}{chosen.G:X2}{chosen.B:X2}";
-                    SetChangeBgCustomColor(chosenHex);
-                }
-            }
-            finally
-            {
-                handle.Free();
+                SetChangeBgCustomColor($"#{chosen.R:X2}{chosen.G:X2}{chosen.B:X2}");
             }
         }
 

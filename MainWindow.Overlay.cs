@@ -21,11 +21,6 @@ namespace ImageEditor
         private readonly List<LayerItem> _layers = new();
         private LayerItem? _selectedLayerItem;
 
-        // Compatibility accessors
-        public IEnumerable<OverlayImageItem> _overlayItems => _layers.OfType<OverlayImageItem>();
-        private OverlayImageItem? _selectedOverlayItem => _selectedLayerItem as OverlayImageItem;
-
-        // Dragging overlay state
         private bool _isDraggingOverlay;
         private Point _dragStartCanvasPos;
         private Point _dragItemStartPos;

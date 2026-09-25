@@ -33,10 +33,7 @@ namespace ImageEditor
             UpdateBatchSummary();
         }
 
-        private void CloseBatchCompressModal_Click(object sender, RoutedEventArgs e)
-        {
-            CloseBatchCompressModal();
-        }
+        private void CloseBatchCompressModal_Click(object sender, RoutedEventArgs e) => CloseBatchCompressModal();
 
         private void CloseBatchCompressModal()
         {
@@ -104,10 +101,7 @@ namespace ImageEditor
 
         private void BatchClearQueue_Click(object sender, RoutedEventArgs e)
         {
-            if (_isBatchProcessing)
-            {
-                return;
-            }
+            if (_isBatchProcessing) return;
             _batchItems.Clear();
             UpdateBatchSummary();
             BatchProgressBar.Value = 0;
@@ -118,10 +112,7 @@ namespace ImageEditor
 
         private void BatchRemoveItem_Click(object sender, RoutedEventArgs e)
         {
-            if (_isBatchProcessing)
-            {
-                return;
-            }
+            if (_isBatchProcessing) return;
             if (sender is FrameworkElement el && el.Tag is BatchItem item)
             {
                 _batchItems.Remove(item);
@@ -189,18 +180,7 @@ namespace ImageEditor
                         continue;
                     }
 
-                    int w = 0, h = 0;
-                    try
-                    {
-                        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                        var decoder = BitmapDecoder.Create(fs, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
-                        if (decoder.Frames.Count > 0)
-                        {
-                            w = decoder.Frames[0].PixelWidth;
-                            h = decoder.Frames[0].PixelHeight;
-                        }
-                    }
-                    catch { }
+                    var (w, h) = GetImageDimensions(path);
 
                     var item = new BatchItem
                     {
@@ -240,84 +220,47 @@ namespace ImageEditor
             BatchClearBtn.IsEnabled = count > 0 && !_isBatchProcessing;
         }
 
-        private void BatchMode_Changed(object sender, RoutedEventArgs e)
-        {
-            UpdateBatchModeVisuals();
-        }
+        private void BatchMode_Changed(object sender, RoutedEventArgs e) => UpdateBatchModeVisuals();
 
         private void UpdateBatchModeVisuals()
         {
-            if (BatchSliderControls == null || BatchTargetSizeControls == null || BatchPercentageControls == null)
-            {
-                return;
-            }
-
-            bool isSlider = BatchModeSliderRadio?.IsChecked == true;
-            bool isTarget = BatchModeTargetSizeRadio?.IsChecked == true;
-            bool isPercent = BatchModePercentageRadio?.IsChecked == true;
-
-            BatchSliderControls.Visibility = isSlider ? Visibility.Visible : Visibility.Collapsed;
-            BatchTargetSizeControls.Visibility = isTarget ? Visibility.Visible : Visibility.Collapsed;
-            BatchPercentageControls.Visibility = isPercent ? Visibility.Visible : Visibility.Collapsed;
+            if (BatchSliderControls == null || BatchTargetSizeControls == null || BatchPercentageControls == null) return;
+            BatchSliderControls.Visibility = (BatchModeSliderRadio?.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
+            BatchTargetSizeControls.Visibility = (BatchModeTargetSizeRadio?.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
+            BatchPercentageControls.Visibility = (BatchModePercentageRadio?.IsChecked == true) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void BatchQualitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (BatchSliderValueText == null)
-            {
-                return;
-            }
+            if (BatchSliderValueText == null) return;
             int val = (int)Math.Round(e.NewValue);
             BatchSliderValueText.Text = $"{val}%";
-
             if (BatchSliderMinusBtn != null && BatchQualitySlider != null)
-            {
                 BatchSliderMinusBtn.IsEnabled = val > (int)BatchQualitySlider.Minimum;
-            }
             if (BatchSliderPlusBtn != null && BatchQualitySlider != null)
-            {
                 BatchSliderPlusBtn.IsEnabled = val < (int)BatchQualitySlider.Maximum;
-            }
         }
 
         private void BatchSliderMinus_Click(object sender, RoutedEventArgs e)
         {
-            if (BatchQualitySlider == null)
-            {
-                return;
-            }
-            if (BatchQualitySlider.Value > BatchQualitySlider.Minimum)
-            {
+            if (BatchQualitySlider != null && BatchQualitySlider.Value > BatchQualitySlider.Minimum)
                 BatchQualitySlider.Value = Math.Max(BatchQualitySlider.Minimum, BatchQualitySlider.Value - 1);
-            }
         }
 
         private void BatchSliderPlus_Click(object sender, RoutedEventArgs e)
         {
-            if (BatchQualitySlider == null)
-            {
-                return;
-            }
-            if (BatchQualitySlider.Value < BatchQualitySlider.Maximum)
-            {
+            if (BatchQualitySlider != null && BatchQualitySlider.Value < BatchQualitySlider.Maximum)
                 BatchQualitySlider.Value = Math.Min(BatchQualitySlider.Maximum, BatchQualitySlider.Value + 1);
-            }
         }
 
         private void BatchPercentageSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (BatchPercentageValueText == null)
-            {
-                return;
-            }
-            int val = (int)Math.Round(e.NewValue);
-            BatchPercentageValueText.Text = $"{val}%";
+            if (BatchPercentageValueText != null)
+                BatchPercentageValueText.Text = $"{(int)Math.Round(e.NewValue)}%";
         }
 
-        private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
-        {
+        private void NumberValidationTextBox(object sender, TextCompositionEventArgs e) =>
             e.Handled = !Regex.IsMatch(e.Text, "^[0-9]+$");
-        }
 
         private void BatchBrowseCustomFolder_Click(object sender, RoutedEventArgs e)
         {
@@ -341,7 +284,6 @@ namespace ImageEditor
                 return;
             }
 
-            // Validate Destination
             bool isCustom = BatchDestCustomRadio.IsChecked == true;
             bool isOverwrite = BatchDestOverwriteRadio.IsChecked == true;
             string customFolder = BatchCustomFolderInput.Text.Trim();
@@ -351,53 +293,11 @@ namespace ImageEditor
                 subfolderName = "_compressed";
             }
 
-            if (isCustom)
+            if (!ValidateBatchDestination(isCustom, isOverwrite, customFolder))
             {
-                if (string.IsNullOrEmpty(customFolder))
-                {
-                    System.Windows.MessageBox.Show(
-                        "Please select or enter a valid custom output folder.",
-                        "Folder Required",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Warning);
-                    return;
-                }
-
-                try
-                {
-                    if (!Directory.Exists(customFolder))
-                    {
-                        Directory.CreateDirectory(customFolder);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Windows.MessageBox.Show(
-                        $"Cannot use custom folder: {ex.Message}",
-                        "Invalid Folder",
-                        System.Windows.MessageBoxButton.OK,
-                        System.Windows.MessageBoxImage.Error);
-                    return;
-                }
+                return;
             }
 
-            if (isOverwrite)
-            {
-                var confirm = System.Windows.MessageBox.Show(
-                    "Warning: Overwrite original files is selected!\n\n" +
-                    "This will permanently replace your original image files " +
-                    "with the compressed versions. Are you sure you want to proceed?",
-                    "Confirm Overwrite",
-                    System.Windows.MessageBoxButton.YesNo,
-                    System.Windows.MessageBoxImage.Warning);
-
-                if (confirm != System.Windows.MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            // Determine Compression Mode & Parameters
             bool isSliderMode = BatchModeSliderRadio.IsChecked == true;
             bool isTargetSizeMode = BatchModeTargetSizeRadio.IsChecked == true;
             bool isPercentageMode = BatchModePercentageRadio.IsChecked == true;
@@ -438,7 +338,6 @@ namespace ImageEditor
             BatchProgressBar.Maximum = _batchItems.Count;
             BatchProgressBar.Value = 0;
 
-            // Reset items status
             foreach (var item in _batchItems)
             {
                 item.Status = BatchItemStatus.Waiting;
@@ -447,20 +346,14 @@ namespace ImageEditor
             }
 
             int total = _batchItems.Count;
-            int processed = 0;
-            int skippedCount = 0;
-            int successCount = 0;
-            int errorCount = 0;
+            int processed = 0, skippedCount = 0, successCount = 0, errorCount = 0;
             string? firstOutputDir = null;
 
             try
             {
                 for (int i = 0; i < _batchItems.Count; i++)
                 {
-                    if (token.IsCancellationRequested)
-                    {
-                        break;
-                    }
+                    if (token.IsCancellationRequested) break;
 
                     var item = _batchItems[i];
                     item.Status = BatchItemStatus.Processing;
@@ -469,82 +362,18 @@ namespace ImageEditor
                     BatchProgressPercentText.Text = $"{((i * 100) / total)}%";
                     BatchProgressBar.Value = i;
 
-                    // Determine output file path
-                    string outDir = "";
-                    string outPath = "";
+                    var (outDir, outPath) = ResolveBatchOutputPath(item.FilePath, item.FileName, isOverwrite, isCustom, customFolder, subfolderName);
+                    firstOutputDir ??= outDir;
 
-                    if (isOverwrite)
-                    {
-                        outPath = item.FilePath;
-                        outDir = System.IO.Path.GetDirectoryName(item.FilePath)!;
-                    }
-                    else if (isCustom)
-                    {
-                        outDir = customFolder;
-                        outPath = System.IO.Path.Combine(outDir, item.FileName);
-                    }
-                    else
-                    {
-                        string originalDir = System.IO.Path.GetDirectoryName(item.FilePath)!;
-                        outDir = System.IO.Path.Combine(originalDir, subfolderName);
-                        if (!Directory.Exists(outDir))
-                        {
-                            Directory.CreateDirectory(outDir);
-                        }
-                        outPath = System.IO.Path.Combine(outDir, item.FileName);
-                    }
-
-                    if (string.IsNullOrEmpty(firstOutputDir))
-                    {
-                        firstOutputDir = outDir;
-                    }
-
-                    // Execute compression in background thread
                     await Task.Run(() =>
                     {
                         try
                         {
-                            // Check if skip smaller applies
-                            if (isTargetSizeMode && skipSmaller && item.OriginalSize <= targetBytes)
-                            {
-                                if (!isOverwrite)
-                                {
-                                    File.Copy(item.FilePath, outPath, true);
-                                }
-                                item.NewSize = item.OriginalSize;
-                                item.Status = BatchItemStatus.Skipped;
-                                skippedCount++;
-                                return;
-                            }
+                            CompressBatchItemWorker(item, outPath, isOverwrite, isSliderMode, sliderQuality,
+                                isTargetSizeMode, targetBytes, skipSmaller, percentageRatio);
 
-                            // Load bitmap
-                            BitmapSource bmp = ImageCompressor.LoadBitmapFromFile(item.FilePath);
-                            string format = item.Extension.TrimStart('.');
-
-                            byte[] compressedData;
-                            if (isSliderMode)
-                            {
-                                compressedData = ImageCompressor.CompressByQuality(bmp, format, sliderQuality);
-                            }
-                            else if (isTargetSizeMode)
-                            {
-                                compressedData = ImageCompressor.CompressToTargetSize(
-                                    bmp, format, targetBytes, item.OriginalSize);
-                            }
-                            else // isPercentageMode
-                            {
-                                compressedData = ImageCompressor.CompressToPercentageOfSize(
-                                    bmp, format, percentageRatio, item.OriginalSize);
-                            }
-
-                            // Write to temp file then move to avoid partial writes
-                            string tempOut = outPath + ".tmp";
-                            File.WriteAllBytes(tempOut, compressedData);
-                            File.Move(tempOut, outPath, true);
-
-                            item.NewSize = compressedData.Length;
-                            item.Status = BatchItemStatus.Completed;
-                            successCount++;
+                            if (item.Status == BatchItemStatus.Skipped) skippedCount++;
+                            else if (item.Status == BatchItemStatus.Completed) successCount++;
                         }
                         catch (Exception ex)
                         {
@@ -626,6 +455,121 @@ namespace ImageEditor
                         System.Windows.MessageBoxImage.Error);
                 }
             }
+        }
+
+        private static bool ValidateBatchDestination(bool isCustom, bool isOverwrite, string customFolder)
+        {
+            if (isCustom)
+            {
+                if (string.IsNullOrEmpty(customFolder))
+                {
+                    System.Windows.MessageBox.Show(
+                        "Please select or enter a valid custom output folder.",
+                        "Folder Required",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Warning);
+                    return false;
+                }
+
+                try
+                {
+                    if (!Directory.Exists(customFolder))
+                    {
+                        Directory.CreateDirectory(customFolder);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Cannot use custom folder: {ex.Message}",
+                        "Invalid Folder",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
+                    return false;
+                }
+            }
+
+            if (isOverwrite)
+            {
+                var confirm = System.Windows.MessageBox.Show(
+                    "Warning: Overwrite original files is selected!\n\n" +
+                    "This will permanently replace your original image files with the compressed versions. Are you sure you want to proceed?",
+                    "Confirm Overwrite",
+                    System.Windows.MessageBoxButton.YesNo,
+                    System.Windows.MessageBoxImage.Warning);
+
+                if (confirm != System.Windows.MessageBoxResult.Yes)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static (string outDir, string outPath) ResolveBatchOutputPath(
+            string filePath, string fileName, bool isOverwrite, bool isCustom, string customFolder, string subfolderName)
+        {
+            if (isOverwrite) return (Path.GetDirectoryName(filePath)!, filePath);
+            if (isCustom) return (customFolder, Path.Combine(customFolder, fileName));
+            string originalDir = Path.GetDirectoryName(filePath)!;
+            string outDir = Path.Combine(originalDir, subfolderName);
+            if (!Directory.Exists(outDir)) Directory.CreateDirectory(outDir);
+            return (outDir, Path.Combine(outDir, fileName));
+        }
+
+        private static void CompressBatchItemWorker(
+            BatchItem item,
+            string outPath,
+            bool isOverwrite,
+            bool isSliderMode,
+            int sliderQuality,
+            bool isTargetSizeMode,
+            long targetBytes,
+            bool skipSmaller,
+            double percentageRatio)
+        {
+            if (isTargetSizeMode && skipSmaller && item.OriginalSize <= targetBytes)
+            {
+                if (!isOverwrite)
+                {
+                    File.Copy(item.FilePath, outPath, true);
+                }
+                item.NewSize = item.OriginalSize;
+                item.Status = BatchItemStatus.Skipped;
+                return;
+            }
+
+            var bmp = ImageCompressor.LoadBitmapFromFile(item.FilePath);
+            string format = item.Extension.TrimStart('.');
+
+            byte[] compressedData = isSliderMode
+                ? ImageCompressor.CompressByQuality(bmp, format, sliderQuality)
+                : isTargetSizeMode
+                    ? ImageCompressor.CompressToTargetSize(bmp, format, targetBytes, item.OriginalSize)
+                    : ImageCompressor.CompressToPercentageOfSize(bmp, format, percentageRatio, item.OriginalSize);
+
+            string tempOut = outPath + ".tmp";
+            File.WriteAllBytes(tempOut, compressedData);
+            File.Move(tempOut, outPath, true);
+
+            item.NewSize = compressedData.Length;
+            item.Status = BatchItemStatus.Completed;
+        }
+
+        private static (int w, int h) GetImageDimensions(string path)
+        {
+            try
+            {
+                using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                var decoder = BitmapDecoder.Create(fs, BitmapCreateOptions.DelayCreation, BitmapCacheOption.None);
+                if (decoder.Frames.Count > 0)
+                {
+                    return (decoder.Frames[0].PixelWidth, decoder.Frames[0].PixelHeight);
+                }
+            }
+            catch { }
+            return (0, 0);
         }
 
         #endregion

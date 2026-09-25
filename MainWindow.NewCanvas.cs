@@ -221,7 +221,7 @@ namespace ImageEditor
             _savedUnappliedCropRect = null;
             _historyManager.Clear();
             UpdateHistoryButtonStates();
-            ClearOverlayItems();
+            ClearLayers();
 
             ImageContainer.Visibility = Visibility.Visible;
             PlaceholderPanel.Visibility = Visibility.Collapsed;
@@ -409,18 +409,13 @@ namespace ImageEditor
             }
         }
 
-        private void OpenColorPickerDlg_Click(object sender, RoutedEventArgs e)
+        private bool ShowNativeColorPicker(Color initialColor, out Color chosenColor)
         {
             var helper = new System.Windows.Interop.WindowInteropHelper(this);
             var cc = new CHOOSECOLOR();
             cc.lStructSize = Marshal.SizeOf(typeof(CHOOSECOLOR));
             cc.hwndOwner = helper.Handle;
-
-            string hex = NewCanvasCustomHexInput?.Text.Trim() ?? "";
-            if (TryParseHexColor(hex, out Color current))
-            {
-                cc.rgbResult = current.R | (current.G << 8) | (current.B << 16);
-            }
+            cc.rgbResult = initialColor.R | (initialColor.G << 8) | (initialColor.B << 16);
 
             GCHandle handle = GCHandle.Alloc(s_customColors, GCHandleType.Pinned);
             try
@@ -433,14 +428,26 @@ namespace ImageEditor
                     byte r = (byte)(cc.rgbResult & 0xFF);
                     byte g = (byte)((cc.rgbResult >> 8) & 0xFF);
                     byte b = (byte)((cc.rgbResult >> 16) & 0xFF);
-                    Color chosen = Color.FromRgb(r, g, b);
-                    string chosenHex = $"#{chosen.R:X2}{chosen.G:X2}{chosen.B:X2}";
-                    SetNewCanvasCustomColor(chosenHex);
+                    chosenColor = Color.FromRgb(r, g, b);
+                    return true;
                 }
             }
             finally
             {
                 handle.Free();
+            }
+
+            chosenColor = initialColor;
+            return false;
+        }
+
+        private void OpenColorPickerDlg_Click(object sender, RoutedEventArgs e)
+        {
+            string hex = NewCanvasCustomHexInput?.Text.Trim() ?? "";
+            TryParseHexColor(hex, out Color current);
+            if (ShowNativeColorPicker(current, out Color chosen))
+            {
+                SetNewCanvasCustomColor($"#{chosen.R:X2}{chosen.G:X2}{chosen.B:X2}");
             }
         }
 

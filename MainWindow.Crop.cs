@@ -69,7 +69,6 @@ namespace ImageEditor
             CropBtn.Appearance = ControlAppearance.Primary;
             CursorBtn.Appearance = ControlAppearance.Secondary;
 
-            // Restore unapplied crop if saved, otherwise default to full image
             if (_savedUnappliedCropRect.HasValue &&
                 _savedUnappliedCropRect.Value.Width >= 2 &&
                 _savedUnappliedCropRect.Value.Height >= 2)
@@ -83,7 +82,6 @@ namespace ImageEditor
             }
             else
             {
-                // Default crop covers the entire image (full image)
                 _cropRect = new Rect(0, 0, _currentImage.PixelWidth, _currentImage.PixelHeight);
             }
 
@@ -139,7 +137,6 @@ namespace ImageEditor
             double currentScale = CurrentScale;
             double invScale = 1.0 / Math.Max(0.001, currentScale);
 
-            // Crop Box Border
             Canvas.SetLeft(CropBoxBorder, _cropRect.X);
             Canvas.SetTop(CropBoxBorder, _cropRect.Y);
             CropBoxBorder.Width = Math.Max(1, _cropRect.Width);
@@ -149,18 +146,10 @@ namespace ImageEditor
             GridLineH.BorderThickness = new Thickness(0, Math.Max(0.5, 1.0 * invScale), 0, Math.Max(0.5, 1.0 * invScale));
             GridLineV.BorderThickness = new Thickness(Math.Max(0.5, 1.0 * invScale), 0, Math.Max(0.5, 1.0 * invScale), 0);
 
-            // Inverse scale handles so they stay a crisp 14px / 28px on screen
             var handleScale = new ScaleTransform(invScale, invScale);
-            HandleTL.RenderTransform = handleScale;
-            HandleTR.RenderTransform = handleScale;
-            HandleBR.RenderTransform = handleScale;
-            HandleBL.RenderTransform = handleScale;
-            HandleT.RenderTransform = handleScale;
-            HandleB.RenderTransform = handleScale;
-            HandleL.RenderTransform = handleScale;
-            HandleR.RenderTransform = handleScale;
+            HandleTL.RenderTransform = HandleTR.RenderTransform = HandleBR.RenderTransform = HandleBL.RenderTransform =
+                HandleT.RenderTransform = HandleB.RenderTransform = HandleL.RenderTransform = HandleR.RenderTransform = handleScale;
 
-            // 4 Corner Handles (14x14, center at 7,7)
             Canvas.SetLeft(HandleTL, _cropRect.X - 7);
             Canvas.SetTop(HandleTL, _cropRect.Y - 7);
 
@@ -173,7 +162,6 @@ namespace ImageEditor
             Canvas.SetLeft(HandleBL, _cropRect.X - 7);
             Canvas.SetTop(HandleBL, _cropRect.Bottom - 7);
 
-            // 4 Side Edge Handles (T/B: 28x10, center at 14,5; L/R: 10x28, center at 5,14)
             Canvas.SetLeft(HandleT, _cropRect.X + (_cropRect.Width / 2.0) - 14);
             Canvas.SetTop(HandleT, _cropRect.Y - 5);
 
@@ -186,7 +174,6 @@ namespace ImageEditor
             Canvas.SetLeft(HandleR, _cropRect.Right - 5);
             Canvas.SetTop(HandleR, _cropRect.Y + (_cropRect.Height / 2.0) - 14);
 
-            // 4 Surrounding Dark Masks
             Canvas.SetLeft(MaskTop, 0);
             Canvas.SetTop(MaskTop, 0);
             MaskTop.Width = imgW;
@@ -207,7 +194,6 @@ namespace ImageEditor
             MaskRight.Width = Math.Max(0, imgW - _cropRect.Right);
             MaskRight.Height = Math.Max(0, _cropRect.Height);
 
-            // Realtime Pixel Dimensions & Status
             if (_croppingOverlayItem != null)
             {
                 var src = _croppingOverlayItem.Source;
@@ -272,7 +258,6 @@ namespace ImageEditor
             double cornerThreshold = 24.0 * invScale;
             double edgeThreshold = 18.0 * invScale;
 
-            // 1. Check Corner Handles (4 Corners)
             if (Distance(pt, new Point(_cropRect.X, _cropRect.Y)) <= cornerThreshold)
             {
                 _dragMode = DragMode.ResizeTL;
@@ -289,8 +274,6 @@ namespace ImageEditor
             {
                 _dragMode = DragMode.ResizeBL;
             }
-
-            // 2. Check Side Edge Handles (4 Edges)
             else if (Math.Abs(pt.Y - _cropRect.Y) <= edgeThreshold &&
                      pt.X >= _cropRect.X - edgeThreshold &&
                      pt.X <= _cropRect.Right + edgeThreshold)
@@ -315,15 +298,11 @@ namespace ImageEditor
             {
                 _dragMode = DragMode.ResizeR;
             }
-
-            // 3. Drag INSIDE crop: move crop box itself, not pan/zoom
             else if (_cropRect.Contains(pt))
             {
                 _dragMode = DragMode.Move;
                 CropCanvas.Cursor = Cursors.SizeAll;
             }
-
-            // 4. Drag OUTSIDE crop: pan view position
             else
             {
                 _dragMode = DragMode.Pan;

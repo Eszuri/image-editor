@@ -51,20 +51,7 @@ namespace ImageEditor
             LayersListPanel.Children.Clear();
             LayersCountBadge.Text = _layers.Count.ToString();
 
-            // Sync Opacity Slider with currently selected item
-            if (_selectedLayerItem != null)
-            {
-                LayerOpacitySlider.IsEnabled = !_selectedLayerItem.IsLocked;
-                LayerOpacitySlider.Value = Math.Round(_selectedLayerItem.Opacity * 100);
-                LayerOpacityText.Text = $"{(int)Math.Round(_selectedLayerItem.Opacity * 100)}%";
-                _sliderStartOpacity = _selectedLayerItem.Opacity;
-            }
-            else
-            {
-                LayerOpacitySlider.IsEnabled = false;
-                LayerOpacitySlider.Value = 100;
-                LayerOpacityText.Text = "—";
-            }
+            SyncOpacitySliderUI();
 
             // Display in visual stacking order (topmost layer on top)
             foreach (var item in _layers.OrderByDescending(x => x.ZIndex))
@@ -512,6 +499,12 @@ namespace ImageEditor
                 }
             }
 
+            SyncOpacitySliderUI();
+            UpdateMergeButtonVisibility();
+        }
+
+        private void SyncOpacitySliderUI()
+        {
             if (_selectedLayerItem != null)
             {
                 LayerOpacitySlider.IsEnabled = !_selectedLayerItem.IsLocked;
@@ -525,8 +518,6 @@ namespace ImageEditor
                 LayerOpacitySlider.Value = 100;
                 LayerOpacityText.Text = "—";
             }
-
-            UpdateMergeButtonVisibility();
         }
 
         private void LayerOpacitySlider_PreviewMouseDown(object sender, MouseButtonEventArgs e)

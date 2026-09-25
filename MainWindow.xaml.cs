@@ -461,7 +461,7 @@ namespace ImageEditor
                 ShapePreviewCanvas.Height = _currentImage.PixelHeight;
                 ShapePreviewCanvas.Children.Clear();
                 UpdateCanvasClips(_currentImage.PixelWidth, _currentImage.PixelHeight);
-                ClearOverlayItems();
+                ClearLayers();
                 ActivateCursorMode();
                 _savedUnappliedCropRect = null;
                 _historyManager.Clear();

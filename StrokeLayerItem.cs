@@ -200,18 +200,8 @@ namespace ImageEditor
             return thumbBorder;
         }
 
-        public static StrokeLayerItem Create(Stroke stroke, MainWindow.StrokeShape shape, double canvasW, double canvasH, int zIndex, string name)
+        private void InitializeVisuals(double canvasW, double canvasH, int zIndex)
         {
-            var item = new StrokeLayerItem
-            {
-                Name = name,
-                StrokeColor = stroke.DrawingAttributes.Color,
-                StrokeThickness = stroke.DrawingAttributes.Width,
-                Shape = shape,
-                ZIndex = zIndex
-            };
-            item.Strokes.Add(stroke);
-
             var rectGeo = new RectangleGeometry(new Rect(0, 0, canvasW, canvasH));
 
             var host = new Canvas
@@ -230,9 +220,9 @@ namespace ImageEditor
                 Height = canvasH,
                 IsHitTestVisible = false,
                 ClipToBounds = true,
-                Clip = rectGeo
+                Clip = rectGeo,
+                Strokes = Strokes
             };
-            presenter.Strokes = item.Strokes;
             host.Children.Add(presenter);
 
             var selBorder = new Border
@@ -245,12 +235,26 @@ namespace ImageEditor
             };
             host.Children.Add(selBorder);
 
-            item.HostCanvas = host;
-            item.Presenter = presenter;
-            item.SelectionBorder = selBorder;
-            item.UpdateSelectionBounds();
+            HostCanvas = host;
+            Presenter = presenter;
+            SelectionBorder = selBorder;
+            UpdateSelectionBounds();
 
             Panel.SetZIndex(host, zIndex);
+        }
+
+        public static StrokeLayerItem Create(Stroke stroke, MainWindow.StrokeShape shape, double canvasW, double canvasH, int zIndex, string name)
+        {
+            var item = new StrokeLayerItem
+            {
+                Name = name,
+                StrokeColor = stroke.DrawingAttributes.Color,
+                StrokeThickness = stroke.DrawingAttributes.Width,
+                Shape = shape,
+                ZIndex = zIndex
+            };
+            item.Strokes.Add(stroke);
+            item.InitializeVisuals(canvasW, canvasH, zIndex);
             return item;
         }
 
@@ -277,45 +281,7 @@ namespace ImageEditor
                 }
             }
 
-            var rectGeo = new RectangleGeometry(new Rect(0, 0, canvasW, canvasH));
-
-            var host = new Canvas
-            {
-                Width = canvasW,
-                Height = canvasH,
-                Background = Brushes.Transparent,
-                IsHitTestVisible = false,
-                ClipToBounds = true,
-                Clip = rectGeo
-            };
-
-            var presenter = new InkPresenter
-            {
-                Width = canvasW,
-                Height = canvasH,
-                IsHitTestVisible = false,
-                ClipToBounds = true,
-                Clip = rectGeo
-            };
-            presenter.Strokes = item.Strokes;
-            host.Children.Add(presenter);
-
-            var selBorder = new Border
-            {
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#0078D4")),
-                BorderThickness = new Thickness(1),
-                Background = Brushes.Transparent,
-                IsHitTestVisible = false,
-                Visibility = Visibility.Collapsed
-            };
-            host.Children.Add(selBorder);
-
-            item.HostCanvas = host;
-            item.Presenter = presenter;
-            item.SelectionBorder = selBorder;
-            item.UpdateSelectionBounds();
-
-            Panel.SetZIndex(host, zIndex);
+            item.InitializeVisuals(canvasW, canvasH, zIndex);
             return item;
         }
     }

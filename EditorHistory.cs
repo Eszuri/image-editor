@@ -14,31 +14,6 @@ namespace ImageEditor
         void Redo();
     }
 
-    public class AddStrokeAction : IEditorAction
-    {
-        private readonly Stroke _stroke;
-        private readonly InkCanvas _inkCanvas;
-
-        public AddStrokeAction(Stroke stroke, InkCanvas inkCanvas)
-        {
-            _stroke = stroke ?? throw new ArgumentNullException(nameof(stroke));
-            _inkCanvas = inkCanvas ?? throw new ArgumentNullException(nameof(inkCanvas));
-        }
-
-        public void Undo()
-        {
-            _inkCanvas.Strokes.Remove(_stroke);
-        }
-
-        public void Redo()
-        {
-            if (!_inkCanvas.Strokes.Contains(_stroke))
-            {
-                _inkCanvas.Strokes.Add(_stroke);
-            }
-        }
-    }
-
     public class AddLayerAction : IEditorAction
     {
         private readonly MainWindow _window;

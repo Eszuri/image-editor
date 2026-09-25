@@ -114,8 +114,6 @@ namespace ImageEditor
             return $"{shapeName} {num}";
         }
 
-        public void DuplicateOverlayItem(OverlayImageItem item) => DuplicateLayer(item);
-
         public void DuplicateSelectedLayer()
         {
             if (_selectedLayers.Count > 1)
@@ -131,8 +129,6 @@ namespace ImageEditor
                 DuplicateLayer(_selectedLayerItem);
             }
         }
-
-        public void DuplicateSelectedOverlay() => DuplicateSelectedLayer();
 
         public void DeleteLayer(LayerItem item)
         {
@@ -159,8 +155,6 @@ namespace ImageEditor
             UpdateLayerListUI();
         }
 
-        public void DeleteOverlayItem(OverlayImageItem item) => DeleteLayer(item);
-
         public void DeleteSelectedLayer()
         {
             if (_selectedLayers.Count > 1)
@@ -177,8 +171,6 @@ namespace ImageEditor
             }
         }
 
-        public void DeleteSelectedOverlay() => DeleteSelectedLayer();
-
         public void ClearLayers()
         {
             DeselectLayer();
@@ -186,8 +178,6 @@ namespace ImageEditor
             OverlayCanvas?.Children.Clear();
             UpdateLayerListUI();
         }
-
-        public void ClearOverlayItems() => ClearLayers();
 
         #region Internal Methods for History Actions
 
