@@ -231,8 +231,13 @@ namespace ImageEditor
             double canvasW = _currentImage.PixelWidth;
             double canvasH = _currentImage.PixelHeight;
 
-            // Clamp stylus points so stroke coordinates never exceed canvas dimensions
-            stroke = ClampStrokeToCanvas(stroke, canvasW, canvasH);
+            // Ensure stroke touches the canvas; do not artificially clamp points to the border
+            // as that would collapse outside movements into unwanted lines along the edge.
+            Rect strokeBounds = stroke.GetBounds();
+            if (!strokeBounds.IntersectsWith(new Rect(0, 0, canvasW, canvasH)))
+            {
+                return null!;
+            }
 
             int maxZ = _layers.Count > 0 ? _layers.Max(x => x.ZIndex) : 0;
             int z = maxZ + 1;
@@ -420,9 +425,7 @@ namespace ImageEditor
             if (_isDrawingShape && e.LeftButton == MouseButtonState.Pressed && _currentImage != null)
             {
                 Point current = e.GetPosition(MainInkCanvas);
-                double clampedX = Math.Clamp(current.X, 0, _currentImage.PixelWidth);
-                double clampedY = Math.Clamp(current.Y, 0, _currentImage.PixelHeight);
-                RenderShapePreview(_shapeStartPoint, new Point(clampedX, clampedY));
+                RenderShapePreview(_shapeStartPoint, current);
                 e.Handled = true;
             }
         }
@@ -435,12 +438,6 @@ namespace ImageEditor
                 MainInkCanvas.ReleaseMouseCapture();
                 ShapePreviewCanvas.Children.Clear();
                 Point endPoint = e.GetPosition(MainInkCanvas);
-                if (_currentImage != null)
-                {
-                    endPoint = new Point(
-                        Math.Clamp(endPoint.X, 0, _currentImage.PixelWidth),
-                        Math.Clamp(endPoint.Y, 0, _currentImage.PixelHeight));
-                }
 
                 if (Distance(_shapeStartPoint, endPoint) >= 2)
                 {

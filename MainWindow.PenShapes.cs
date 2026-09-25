@@ -8,24 +8,6 @@ namespace ImageEditor
 {
     public partial class MainWindow
     {
-        public static Stroke ClampStrokeToCanvas(Stroke stroke, double canvasW, double canvasH)
-        {
-            if (stroke == null || stroke.StylusPoints == null || stroke.StylusPoints.Count == 0)
-            {
-                return stroke!;
-            }
-
-            var clampedPoints = new StylusPointCollection();
-            foreach (var pt in stroke.StylusPoints)
-            {
-                double cx = Math.Clamp(pt.X, 0, canvasW);
-                double cy = Math.Clamp(pt.Y, 0, canvasH);
-                clampedPoints.Add(new StylusPoint(cx, cy, pt.PressureFactor));
-            }
-
-            return new Stroke(clampedPoints, stroke.DrawingAttributes);
-        }
-
         public void UpdateCanvasClips(double w, double h)
         {
             if (w <= 0 || h <= 0) return;

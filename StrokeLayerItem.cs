@@ -72,6 +72,15 @@ namespace ImageEditor
             if (SelectionBorder != null && Strokes.Count > 0)
             {
                 Rect bounds = Strokes.GetBounds();
+                if (HostCanvas != null && HostCanvas.Width > 0 && HostCanvas.Height > 0)
+                {
+                    bounds.Intersect(new Rect(0, 0, HostCanvas.Width, HostCanvas.Height));
+                }
+                if (bounds.IsEmpty)
+                {
+                    SelectionBorder.Visibility = Visibility.Collapsed;
+                    return;
+                }
                 double pad = 6;
                 SelectionBorder.Width = Math.Max(16, bounds.Width + pad * 2);
                 SelectionBorder.Height = Math.Max(16, bounds.Height + pad * 2);
@@ -83,6 +92,10 @@ namespace ImageEditor
         public bool HitTestPoint(Point pt, double tolerance = 8.0)
         {
             if (Strokes == null || Strokes.Count == 0)
+            {
+                return false;
+            }
+            if (HostCanvas != null && (pt.X < 0 || pt.X > HostCanvas.Width || pt.Y < 0 || pt.Y > HostCanvas.Height))
             {
                 return false;
             }
@@ -101,7 +114,16 @@ namespace ImageEditor
             {
                 return false;
             }
+            if (HostCanvas != null && (pt.X < 0 || pt.X > HostCanvas.Width || pt.Y < 0 || pt.Y > HostCanvas.Height))
+            {
+                return false;
+            }
             Rect bounds = Strokes.GetBounds();
+            if (HostCanvas != null && HostCanvas.Width > 0 && HostCanvas.Height > 0)
+            {
+                bounds.Intersect(new Rect(0, 0, HostCanvas.Width, HostCanvas.Height));
+            }
+            if (bounds.IsEmpty) return false;
             bounds.Inflate(padding, padding);
             return bounds.Contains(pt);
         }
@@ -139,8 +161,12 @@ namespace ImageEditor
             {
                 if (Strokes == null || Strokes.Count == 0) return "0 × 0 px";
                 Rect b = Strokes.GetBounds();
-                int bw = Math.Max(1, (int)Math.Round(b.Width));
-                int bh = Math.Max(1, (int)Math.Round(b.Height));
+                if (HostCanvas != null && HostCanvas.Width > 0 && HostCanvas.Height > 0)
+                {
+                    b.Intersect(new Rect(0, 0, HostCanvas.Width, HostCanvas.Height));
+                }
+                int bw = Math.Max(1, (int)Math.Round(b.IsEmpty ? 0 : b.Width));
+                int bh = Math.Max(1, (int)Math.Round(b.IsEmpty ? 0 : b.Height));
                 return IsMerged
                     ? $"{bw} × {bh} px • Merged ({OriginalLayers.Count})"
                     : $"{bw} × {bh} px • {(int)Math.Round(StrokeThickness)} px";
